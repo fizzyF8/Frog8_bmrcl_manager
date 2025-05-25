@@ -134,7 +134,8 @@ This project is proprietary and confidential. All rights reserved.
 
 ## 👥 Authors
 
-- Your Name/Team Name
+- Faaiz Akhtar
+- Dhananjay Gahiwade
 
 ## 🙏 Acknowledgments
 
