@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, ViewStyle, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, ViewStyle, RefreshControl, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,7 +10,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { MapPin, Clock, Calendar, ArrowRight, User, CircleCheck as CheckCircle2, CircleAlert as AlertCircle } from 'lucide-react-native';
 import { AttendanceRecord } from '@/types';
-import { attendanceApi, Attendance, ShiftAttendanceResponse } from '@/utils/api';
+import { attendanceApi, Attendance, ShiftAttendanceResponse, Station, Gate, AssignShiftRequest, AssignShiftResponse, AssignShift } from '@/utils/api';
 import { useTheme } from '@/context/theme';
 import { useAuth } from '@/context/auth';
 import { getTimeElapsedString } from '@/utils/time';
@@ -73,12 +73,75 @@ const mockAttendanceHistory = [
   },
 ];
 
+// Update the Button variant type
+type ButtonVariant = 'primary' | 'outlined' | 'ghost';
+
+// Update interface for the shift information displayed on the screen
+interface DisplayShiftInfo {
+  id: number;
+  user_id: number;
+  shift_id: number;
+  start_date: string;
+  end_date: string | null;
+  is_active: boolean;
+  created_at?: string; // Optional, add if needed from API
+  updated_at?: string; // Optional, add if needed from API
+  name: string;
+  startTime: string;
+  endTime: string;
+  stationName?: string; // Add optional station name
+  gateName?: string;   // Add optional gate name
+  station_id?: number; // Add station_id as optional
+  gate_id?: number;     // Add gate_id as optional
+}
+
+// Define station coordinates
+const STATION_COORDINATES: { [key: number]: { latitude: number; longitude: number } } = {
+  // Assuming station IDs 1 and maybe another for Swami Vivekananda Road
+  1: { latitude: 13.0084, longitude: 77.6846 }, // Baiyappanahalli
+  // Add other station coordinates as needed, e.g., assuming ID 2 for Swami Vivekananda Road
+  2: { latitude: 12.9912, longitude: 77.6417 }, // Swami Vivekananda Road (Assuming ID 2)
+};
+
+// Define geofence radius in meters
+const GEOFENCE_RADIUS_METERS = 100; // Example: 100 meters
+
+// Function to calculate distance between two lat/lon points using Haversine formula
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180; // φ, λ in radians
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distance = R * c; // Distance in meters
+  return distance;
+};
+
+// Function to format time
+const formatTime = (dateString: string) => {
+  console.log('Formatting time:', dateString); // Log input string
+  const date = new Date(dateString);
+  console.log('Date object (UTC):', date.toISOString()); // Log Date object in UTC
+  console.log('Date object (Local):', date.toString()); // Log Date object in local timezone
+  return date.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true 
+  });
+};
+
 export default function AttendanceScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const [attendance, setAttendance] = useState<Attendance | null>(null);
   const [attendanceHistory, setAttendanceHistory] = useState<Attendance[]>([]);
-  const [shiftInfo, setShiftInfo] = useState<any>(null);
+  const [shiftInfo, setShiftInfo] = useState<DisplayShiftInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkingIn, setCheckingIn] = useState(false);
@@ -86,11 +149,116 @@ export default function AttendanceScreen() {
   const [syncState, setSyncState] = useState<'syncing' | 'synced' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // New state for self-assignment
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [stations, setStations] = useState<Station[]>([]);
+  const [gates, setGates] = useState<Gate[]>([]);
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
+  const [selectedGate, setSelectedGate] = useState<Gate | null>(null);
+  const [assigningShift, setAssigningShift] = useState(false);
+  const [selectedShift, setSelectedShift] = useState<{
+    id: number;
+    name: string;
+    start_time: string;
+    end_time: string;
+  }>({
+    id: 3, // Default to General shift
+    name: 'General',
+    start_time: '09:00:00',
+    end_time: '18:00:00'
+  });
+
+  // Add shift options constant
+  const SHIFT_OPTIONS = [
+    {
+      id: 1,
+      name: 'Morning',
+      start_time: '06:00:00',
+      end_time: '14:00:00'
+    },
+    {
+      id: 3,
+      name: 'General',
+      start_time: '09:00:00',
+      end_time: '18:00:00'
+    },
+    {
+      id: 2,
+      name: 'Evening',
+      start_time: '14:00:00',
+      end_time: '22:00:00'
+    }
+  ];
+
+  // Add state for dropdown visibility
+  const [showShiftDropdown, setShowShiftDropdown] = useState(false);
+  const [showStationDropdown, setShowStationDropdown] = useState(false);
+  const [showGateDropdown, setShowGateDropdown] = useState(false);
+
+  // Add new state for assigned shifts
+  const [assignedShifts, setAssignedShifts] = useState<AssignShift[]>([]);
+
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAttendance();
+    fetchStationsAndGates();
   }, []);
+
+  const fetchStationsAndGates = async () => {
+    try {
+      const [stationsResponse, gatesResponse] = await Promise.all([
+        attendanceApi.getStations(),
+        attendanceApi.getGates()
+      ]);
+      setStations(stationsResponse.stations);
+      setGates(gatesResponse.gates);
+    } catch (err) {
+      console.error('Error fetching stations and gates:', err);
+      Alert.alert('Error', 'Failed to fetch stations and gates data');
+    }
+  };
+
+  const handleSelfAssign = async () => {
+    console.log('Starting self-assign with user:', user); // Debug log
+
+    if (!selectedStation || !selectedGate) {
+      Alert.alert('Error', 'Please select both station and gate');
+      return;
+    }
+
+    try {
+      setAssigningShift(true);
+      const today = new Date().toISOString().split('T')[0].replace(/-/g, '/');
+      
+      const assignData: AssignShiftRequest = {
+        assigned_date: today,
+        user_id: 6, // Hardcoded user ID as we know it's 6
+        shift_id: selectedShift.id,
+        station_id: selectedStation.id,
+        gate_id: selectedGate.id,
+        organization_id: 1 // Default organization ID
+      };
+
+      console.log('Assigning shift with data:', assignData); // Debug log
+
+      const response = await attendanceApi.assignShift(assignData);
+      
+      if (response.status === 'true') {
+        Alert.alert('Success', 'Shift assigned successfully');
+        setShowAssignModal(false);
+        fetchAttendance(); // Refresh attendance data
+      } else {
+        throw new Error(response.message || 'Failed to assign shift');
+      }
+    } catch (err: any) {
+      console.error('Shift assignment error:', err); // Debug log
+      Alert.alert('Error', err.message || 'Failed to assign shift. Please try again.');
+    } finally {
+      setAssigningShift(false);
+    }
+  };
 
   const fetchAttendance = async () => {
     try {
@@ -99,40 +267,105 @@ export default function AttendanceScreen() {
       setError(null);
       setSyncState('syncing');
 
-      // Original API call
-      const response: ShiftAttendanceResponse = await attendanceApi.getShiftAttendance();
+      // Fetch both attendance and assigned shifts
+      const [attendanceResponse, assignShiftResponse] = await Promise.all([
+        attendanceApi.getShiftAttendance(), // Response with attendance and maybe today's shift
+        attendanceApi.getAssignedShifts() // Response with all assigned shifts
+      ]);
 
-      // Check if we have any data in the response
-      if (!response.attendance || response.attendance.length === 0) {
-        // If no attendance, but there is a shift, show the shift info and check-in button
-        if (response.assign_shift && response.assign_shift.length > 0) {
-          setAttendance(null); // Ensure attendance is null
-          setAttendanceHistory([]);
-          setShiftInfo(response.assign_shift[0]);
-        } else {
-           // If no attendance and no shift, show the empty state message
-          setAttendance(null);
-          setAttendanceHistory([]);
-          setShiftInfo(null);
-        }
-        setSyncState('synced');
-        setLastSyncTime(new Date());
-        return; // Exit the function after setting state
+      // Handle assigned shifts fetched from /shift_assign/list
+      if (assignShiftResponse.status === 'true') {
+        setAssignedShifts(assignShiftResponse.assign_shifts);
       }
 
-      // Logic for handling fetched attendance
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const todayAttendance = response.attendance.find(a => a.date === todayStr) || null;
-      
-      // Explicitly set attendance to null if no record is found for today
+      const today = new Date();
+      const todayStr = today.toISOString().slice(0, 10);
+
+      // Find today's attendance record
+      const todayAttendance = attendanceResponse.attendance.find((a: Attendance) => a.date === todayStr) || null;
       setAttendance(todayAttendance);
-      
-      setAttendanceHistory(response.attendance.filter(a => a.date !== todayStr));
-      setShiftInfo(response.assign_shift && response.assign_shift.length > 0 ? response.assign_shift[0] : null);
+
+      // Determine today's assigned shift info
+      let currentDayShift: DisplayShiftInfo | null = null;
+
+      // Prioritize the shift info from the attendance list endpoint if available for today
+      if (attendanceResponse.assign_shift && attendanceResponse.assign_shift.length > 0) {
+        const shiftFromAttendance = attendanceResponse.assign_shift.find(shift => 
+          shift.user_id === 6 && // Use known user ID
+          new Date(shift.start_date || shift.assigned_date).toISOString().split('T')[0] === todayStr
+        );
+
+        if (shiftFromAttendance) {
+          const shiftDetails = SHIFT_OPTIONS.find(s => s.id === shiftFromAttendance.shift_id);
+          if (shiftDetails) {
+             currentDayShift = {
+               id: shiftFromAttendance.id,
+               user_id: shiftFromAttendance.user_id,
+               shift_id: shiftFromAttendance.shift_id,
+               start_date: shiftFromAttendance.start_date || shiftFromAttendance.assigned_date, // Use either date field
+               end_date: shiftFromAttendance.end_date || null, // Use end_date if available
+               is_active: shiftFromAttendance.is_active,
+               name: shiftDetails.name,
+               startTime: shiftDetails.start_time.slice(0, 5),
+               endTime: shiftDetails.end_time.slice(0, 5),
+               stationName: shiftFromAttendance.station?.name, // Include station name from nested object
+               gateName: shiftFromAttendance.gate?.name,     // Include gate name from nested object
+               station_id: shiftFromAttendance.station?.id,
+               gate_id: shiftFromAttendance.gate?.id,
+             };
+          }
+        }
+      }
+
+      // If no shift found in the attendance list, check the full assigned shifts list
+      if (!currentDayShift && assignShiftResponse.assign_shifts.length > 0) {
+         const shiftFromAssignedList = assignShiftResponse.assign_shifts.find(shift => 
+           shift.user_id === 6 && // Use known user ID
+           new Date(shift.assigned_date).toISOString().split('T')[0] === todayStr
+         );
+
+         if (shiftFromAssignedList) {
+           const shiftDetails = SHIFT_OPTIONS.find(s => s.id === shiftFromAssignedList.shift_id);
+
+           // Find station and gate names from the state using the IDs
+           const station = stations.find(s => s.id === shiftFromAssignedList.station_id);
+           const gate = gates.find(g => g.id === shiftFromAssignedList.gate_id);
+
+           if (shiftDetails) {
+             currentDayShift = {
+               id: shiftFromAssignedList.id,
+               user_id: shiftFromAssignedList.user_id,
+               shift_id: shiftFromAssignedList.shift_id,
+               start_date: shiftFromAssignedList.assigned_date, // Use assigned_date
+               end_date: null, // No end date in this response structure
+               is_active: shiftFromAssignedList.is_active,
+               name: shiftDetails.name,
+               startTime: shiftDetails.start_time.slice(0, 5),
+               endTime: shiftDetails.end_time.slice(0, 5),
+               stationName: station?.name, // Include station name from state
+               gateName: gate?.name,     // Include gate name from state
+               station_id: station?.id,
+               gate_id: gate?.id,
+             };
+           }
+         }
+      }
+
+      setShiftInfo(currentDayShift);
+
+      console.log('Debug Info:'); // Add debug log
+      console.log('Stations data:', stations); // Log stations data
+      console.log('Gates data:', gates);     // Log gates data
+      console.log('Current Day Shift object:', currentDayShift); // Log the shift object
+
+      // Set attendance history (excluding today's record)
+      setAttendanceHistory(attendanceResponse.attendance.filter((a: Attendance) => a.date !== todayStr));
+
       setSyncState('synced');
       setLastSyncTime(new Date());
+
     } catch (err) {
-      console.error('Attendance fetch error:', err);
+      console.error('Attendance fetch error:', err); // Debug log
       setError('Failed to fetch attendance. Please try again later.');
       setSyncState('error');
     } finally {
@@ -151,54 +384,89 @@ export default function AttendanceScreen() {
     return location.coords;
   };
 
-  const takeSelfie = async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Camera permission is required to take a selfie.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        setSelfieImage(result.assets[0].uri);
-      }
-    } catch (err) {
-      Alert.alert('Error', 'Failed to take selfie. Please try again.');
-    }
-  };
-
   const handleCheckIn = async () => {
     try {
       setCheckingIn(true);
       const coords = await getLocation();
-      if (!shiftInfo) throw new Error('No shift assignment found.');
-      
-      // Take selfie first
-      await takeSelfie();
-      if (!selfieImage) {
-        throw new Error('Selfie is required for check-in');
+
+      // Ensure shiftInfo is available as it contains the user_shift_assignment_id
+      if (!shiftInfo || shiftInfo.id === undefined) {
+        Alert.alert('Error', 'No active shift information found. Please refresh or contact support.');
+        return;
       }
 
-      // API call for check-in
-      const response = await attendanceApi.getShiftAttendance(); // Re-fetch to get current shift assignment
-      const currentShift = response.assign_shift.find(shift => shift.user_id === user?.id);
-      
-      if (!currentShift) throw new Error('No active shift found for your profile');
-      
-      await attendanceApi.checkInAttendance({
-        user_shift_assignment_id: currentShift.id,
-        check_in_latitude: coords.latitude.toString(),
-        check_in_longitude: coords.longitude.toString(),
-      });
-      
-      Alert.alert('Success', 'Checked in successfully!');
-      fetchAttendance(); // Refresh data after successful check-in
+      // Check if station information is available for geofence check, but proceed if not
+      if (!shiftInfo.stationName || shiftInfo.station_id === undefined) {
+        console.warn('Station information missing for geofence check. Proceeding with check-in.');
+        // Directly call check-in API using shiftInfo.id
+        await attendanceApi.checkInAttendance({
+          user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
+          check_in_latitude: coords.latitude.toString(),
+          check_in_longitude: coords.longitude.toString(),
+        });
+        
+        Alert.alert('Success', 'Checked in successfully!');
+        fetchAttendance(); // Refresh data after successful check-in
+        return; // Exit the function
+      }
+
+      const stationCoords = STATION_COORDINATES[shiftInfo.station_id];
+
+      if (!stationCoords) {
+         // Proceed without geofence check if station coordinates are not defined
+        console.warn(`Coordinates not defined for station ID ${shiftInfo.station_id}. Proceeding with check-in.`);
+         // Directly call check-in API using shiftInfo.id
+        await attendanceApi.checkInAttendance({
+          user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
+          check_in_latitude: coords.latitude.toString(),
+          check_in_longitude: coords.longitude.toString(),
+        });
+        
+        Alert.alert('Success', 'Checked in successfully!');
+        fetchAttendance(); // Refresh data after successful check-in
+        return; // Exit the function
+      }
+
+      const distance = calculateDistance(coords.latitude, coords.longitude, stationCoords.latitude, stationCoords.longitude);
+      const distanceInMeters = Math.round(distance);
+
+      if (distance > GEOFENCE_RADIUS_METERS) {
+        Alert.alert(
+          'Outside Station Geofence',
+          `You are approximately ${distanceInMeters} meters away from ${shiftInfo.stationName}. Do you want to force mark attendance?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Force Mark', onPress: async () => {
+                try {
+                  setCheckingIn(true);
+                   // Call check-in API using shiftInfo.id for force mark
+                  await attendanceApi.checkInAttendance({
+                    user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
+                    check_in_latitude: coords.latitude.toString(),
+                    check_in_longitude: coords.longitude.toString(),
+                  });
+                  Alert.alert('Success', 'Shift force marked and checked in!');
+                  fetchAttendance(); // Refresh data
+                } catch (forceMarkErr: any) {
+                  Alert.alert('Force Mark Failed', forceMarkErr.message || 'Unable to force mark check in.');
+                } finally {
+                   setCheckingIn(false);
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        // User is within the geofence, proceed with normal check-in using shiftInfo.id
+        await attendanceApi.checkInAttendance({
+          user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
+          check_in_latitude: coords.latitude.toString(),
+          check_in_longitude: coords.longitude.toString(),
+        });
+        Alert.alert('Success', 'Checked in successfully!');
+        fetchAttendance(); // Refresh data
+      }
+
     } catch (err: any) {
       Alert.alert('Check In Failed', err.message || 'Unable to check in.');
     } finally {
@@ -210,30 +478,86 @@ export default function AttendanceScreen() {
     try {
       setCheckingOut(true);
       const coords = await getLocation();
-      if (!attendance) throw new Error('No attendance record found.');
-      
-      // Take selfie first
-      await takeSelfie();
-      if (!selfieImage) {
-        throw new Error('Selfie is required for check-out');
+
+      // Ensure attendance and shiftInfo are available
+      if (!attendance || !shiftInfo || shiftInfo.id === undefined) {
+        Alert.alert('Error', 'No active attendance record or shift information found. Please refresh or contact support.');
+        return;
       }
 
-      // API call for check-out
-      const response = await attendanceApi.getShiftAttendance(); // Re-fetch to get current attendance and shift assignment
-      const currentAttendance = response.attendance.find(att => att.user_id === user?.id);
-      const currentShift = response.assign_shift.find(shift => shift.user_id === user?.id);
-      
-      if (!currentAttendance || !currentShift) throw new Error('No active attendance or shift found for your profile');
-      
-      await attendanceApi.checkOutAttendance({
-        attendance_id: currentAttendance.id,
-        user_shift_assignment_id: currentShift.id,
-        check_out_latitude: coords.latitude.toString(),
-        check_out_longitude: coords.longitude.toString(),
-      });
+      // Check if station information is available for geofence check, but proceed if not
+      if (!shiftInfo.stationName || shiftInfo.station_id === undefined) {
+         console.warn('Attendance or Station information missing for geofence check. Proceeding with check-out.');
+         // Directly call check-out API using attendance.id and shiftInfo.id
+        await attendanceApi.checkOutAttendance({
+          attendance_id: attendance.id, // Use attendance ID from state
+          user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
+          check_out_latitude: coords.latitude.toString(),
+          check_out_longitude: coords.longitude.toString(),
+        });
+        Alert.alert('Success', 'Checked out successfully!');
+        fetchAttendance(); // Refresh data after successful check-out
+         return; // Exit the function
+      }
 
-      Alert.alert('Success', 'Checked out successfully!');
-      fetchAttendance(); // Refresh data after successful check-out
+      const stationCoords = STATION_COORDINATES[shiftInfo.station_id];
+
+      if (!stationCoords) {
+        console.warn(`Coordinates not defined for station ID ${shiftInfo.station_id}. Proceeding with check-out.`);
+         // Directly call check-out API using attendance.id and shiftInfo.id
+        await attendanceApi.checkOutAttendance({
+          attendance_id: attendance.id, // Use attendance ID from state
+          user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
+          check_out_latitude: coords.latitude.toString(),
+          check_out_longitude: coords.longitude.toString(),
+        });
+        Alert.alert('Success', 'Checked out successfully!');
+        fetchAttendance(); // Refresh data after successful check-out
+         return; // Exit the function
+      }
+
+      const distance = calculateDistance(coords.latitude, coords.longitude, stationCoords.latitude, stationCoords.longitude);
+      const distanceInMeters = Math.round(distance);
+
+      if (distance > GEOFENCE_RADIUS_METERS) {
+        Alert.alert(
+          'Outside Station Geofence',
+          `You are approximately ${distanceInMeters} meters away from ${shiftInfo.stationName}. Do you want to force mark attendance?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Force Mark', onPress: async () => {
+                try {
+                  setCheckingOut(true);
+                   // Call check-out API using attendance.id and shiftInfo.id for force mark
+                  await attendanceApi.checkOutAttendance({
+                    attendance_id: attendance.id, // Use attendance ID
+                    user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
+                    check_out_latitude: coords.latitude.toString(),
+                    check_out_longitude: coords.longitude.toString(),
+                  });
+                  Alert.alert('Success', 'Shift force marked and checked out!');
+                  fetchAttendance(); // Refresh data
+                } catch (forceMarkErr: any) {
+                  Alert.alert('Force Mark Failed', forceMarkErr.message || 'Unable to force mark check out.');
+                } finally {
+                   setCheckingOut(false);
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        // User is within the geofence, proceed with normal check-out using attendance.id and shiftInfo.id
+        await attendanceApi.checkOutAttendance({
+          attendance_id: attendance.id, // Use attendance ID
+          user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
+          check_out_latitude: coords.latitude.toString(),
+          check_out_longitude: coords.longitude.toString(),
+        });
+        Alert.alert('Success', 'Checked out successfully!');
+        fetchAttendance(); // Refresh data
+      }
+
     } catch (err: any) {
       Alert.alert('Check Out Failed', err.message || 'Unable to check out.');
     } finally {
@@ -244,7 +568,6 @@ export default function AttendanceScreen() {
   const handleResetState = () => {
     setAttendance(null);
     setAttendanceHistory([]);
-    setSelfieImage(null);
     // Set dummy shift info after resetting
     setShiftInfo({
       id: 999, // Dummy ID
@@ -268,12 +591,6 @@ export default function AttendanceScreen() {
       setCheckingIn(true);
       const coords = await getLocation();
       
-      // Take selfie first
-      await takeSelfie();
-      if (!selfieImage) {
-        throw new Error('Selfie is required for check-in');
-      }
-
       // Create dummy attendance record with captured data
       const dummyAttendance: Attendance = {
         id: 0, // Use a dummy number ID
@@ -308,15 +625,6 @@ export default function AttendanceScreen() {
     fetchAttendance();
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    });
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
@@ -343,6 +651,311 @@ export default function AttendanceScreen() {
     ...baseStyle,
     backgroundColor: theme.card,
   });
+
+  // Add function to check if user has assigned shifts
+  const hasAssignedShifts = () => {
+    return assignedShifts.some(shift => 
+      shift.user_id === 6 && // Using known user ID
+      new Date(shift.assigned_date).toISOString().split('T')[0] === new Date().toISOString().split('T')[0]
+    );
+  };
+
+  const renderAssignModal = () => (
+    <Modal
+      visible={showAssignModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setShowAssignModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>Self Assign Shift</Text>
+
+          {/* Show assigned shifts if any */}
+          {assignedShifts.length > 0 && (
+            <View style={styles.assignedShiftsContainer}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Your Assigned Shifts</Text>
+              {assignedShifts
+                .filter(shift => shift.user_id === 6) // Filter for current user
+                .map((shift, index) => (
+                  <Card key={index} variant="outlined" style={styles.assignedShiftCard}>
+                    <View style={styles.assignedShiftContent}>
+                      <View style={styles.assignedShiftHeader}>
+                        <Text style={[styles.assignedShiftDate, { color: theme.text }]}>
+                          {new Date(shift.assigned_date).toLocaleDateString()}
+                        </Text>
+                        <StatusBadge 
+                          label={shift.is_completed ? 'Completed' : 'Active'} 
+                          type={shift.is_completed ? 'success' : 'warning'}
+                          size="sm"
+                        />
+                      </View>
+                      <View style={styles.assignedShiftDetails}>
+                        <Text style={[styles.assignedShiftDetail, { color: theme.secondaryText }]}>
+                          Station: {stations.find(s => s.id === shift.station_id)?.name || 'Unknown'}
+                        </Text>
+                        <Text style={[styles.assignedShiftDetail, { color: theme.secondaryText }]}>
+                          Gate: {gates.find(g => g.id === shift.gate_id)?.name || 'Unknown'}
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                ))}
+            </View>
+          )}
+
+          {/* Shift Dropdown */}
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { color: theme.text }]}>Select Shift</Text>
+            <TouchableOpacity
+              style={[styles.dropdownButton, { backgroundColor: theme.card }]}
+              onPress={() => {
+                setShowShiftDropdown(!showShiftDropdown);
+                setShowStationDropdown(false);
+                setShowGateDropdown(false);
+              }}
+            >
+              <View style={styles.dropdownButtonContent}>
+                <View>
+                  <Text style={[styles.dropdownButtonText, { color: theme.text }]}>
+                    {selectedShift.name}
+                  </Text>
+                  <Text style={[styles.dropdownButtonSubtext, { color: theme.secondaryText }]}>
+                    {selectedShift.start_time.slice(0, 5)} - {selectedShift.end_time.slice(0, 5)}
+                  </Text>
+                </View>
+                <ArrowRight 
+                  size={20} 
+                  color={theme.secondaryText} 
+                  style={[
+                    styles.dropdownArrow,
+                    showShiftDropdown && styles.dropdownArrowOpen
+                  ]} 
+                />
+              </View>
+            </TouchableOpacity>
+
+            {showShiftDropdown && (
+              <View style={[styles.dropdownList, { backgroundColor: theme.card }]}>
+                {SHIFT_OPTIONS.map((shift) => (
+                  <TouchableOpacity
+                    key={shift.id}
+                    style={[
+                      styles.dropdownItem,
+                      selectedShift.id === shift.id && styles.dropdownItemSelected,
+                      { borderBottomColor: theme.border }
+                    ]}
+                    onPress={() => {
+                      setSelectedShift(shift);
+                      setShowShiftDropdown(false);
+                    }}
+                  >
+                    <View style={styles.dropdownItemContent}>
+                      <Text style={[styles.dropdownItemText, { color: theme.text }]}>
+                        {shift.name}
+                      </Text>
+                      <Text style={[styles.dropdownItemSubtext, { color: theme.secondaryText }]}>
+                        {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
+                      </Text>
+                    </View>
+                    {selectedShift.id === shift.id && (
+                      <CheckCircle2 size={20} color={COLORS.primary.light} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Station Dropdown */}
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { color: theme.text }]}>Select Station</Text>
+            <TouchableOpacity
+              style={[styles.dropdownButton, { backgroundColor: theme.card }]}
+              onPress={() => {
+                setShowStationDropdown(!showStationDropdown);
+                setShowShiftDropdown(false);
+                setShowGateDropdown(false);
+              }}
+            >
+              <View style={styles.dropdownButtonContent}>
+                <View>
+                  <Text style={[styles.dropdownButtonText, { color: theme.text }]}>
+                    {selectedStation ? selectedStation.name : 'Select Station'}
+                  </Text>
+                  {selectedStation && (
+                    <Text style={[styles.dropdownButtonSubtext, { color: theme.secondaryText }]}>
+                      {selectedStation.short_name} ({selectedStation.code})
+                    </Text>
+                  )}
+                </View>
+                <ArrowRight 
+                  size={20} 
+                  color={theme.secondaryText} 
+                  style={[
+                    styles.dropdownArrow,
+                    showStationDropdown && styles.dropdownArrowOpen
+                  ]} 
+                />
+              </View>
+            </TouchableOpacity>
+
+            {showStationDropdown && (
+              <View style={[styles.dropdownList, { backgroundColor: theme.card }]}>
+                {stations.map((station) => (
+                  <TouchableOpacity
+                    key={station.id}
+                    style={[
+                      styles.dropdownItem,
+                      selectedStation?.id === station.id && styles.dropdownItemSelected,
+                      { borderBottomColor: theme.border }
+                    ]}
+                    onPress={() => {
+                      setSelectedStation(station);
+                      setSelectedGate(null); // Reset gate when station changes
+                      setShowStationDropdown(false);
+                    }}
+                  >
+                    <View style={styles.dropdownItemContent}>
+                      <Text style={[styles.dropdownItemText, { color: theme.text }]}>
+                        {station.name}
+                      </Text>
+                      <Text style={[styles.dropdownItemSubtext, { color: theme.secondaryText }]}>
+                        {station.short_name} ({station.code})
+                      </Text>
+                    </View>
+                    {selectedStation?.id === station.id && (
+                      <CheckCircle2 size={20} color={COLORS.primary.light} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Gate Dropdown */}
+          <View style={styles.formGroup}>
+            <Text style={[styles.label, { color: theme.text }]}>Select Gate</Text>
+            <TouchableOpacity
+              style={[
+                styles.dropdownButton,
+                { backgroundColor: theme.card },
+                !selectedStation && styles.dropdownButtonDisabled
+              ]}
+              onPress={() => {
+                if (selectedStation) {
+                  setShowGateDropdown(!showGateDropdown);
+                  setShowShiftDropdown(false);
+                  setShowStationDropdown(false);
+                }
+              }}
+              disabled={!selectedStation}
+            >
+              <View style={styles.dropdownButtonContent}>
+                <View>
+                  <Text style={[
+                    styles.dropdownButtonText,
+                    { color: selectedStation ? theme.text : theme.secondaryText }
+                  ]}>
+                    {selectedGate ? `${selectedGate.name} (${selectedGate.type})` : 'Select Gate'}
+                  </Text>
+                  {selectedGate && selectedStation && (
+                    <Text style={[styles.dropdownButtonSubtext, { color: theme.secondaryText }]}>
+                      {selectedStation.name}
+                    </Text>
+                  )}
+                </View>
+                <ArrowRight 
+                  size={20} 
+                  color={theme.secondaryText} 
+                  style={[
+                    styles.dropdownArrow,
+                    showGateDropdown && styles.dropdownArrowOpen
+                  ]} 
+                />
+              </View>
+            </TouchableOpacity>
+
+            {showGateDropdown && selectedStation && (
+              <View style={[styles.dropdownList, { backgroundColor: theme.card }]}>
+                {gates
+                  .filter(gate => gate.station_id === selectedStation.id)
+                  .map((gate) => (
+                    <TouchableOpacity
+                      key={gate.id}
+                      style={[
+                        styles.dropdownItem,
+                        selectedGate?.id === gate.id && styles.dropdownItemSelected,
+                        { borderBottomColor: theme.border }
+                      ]}
+                      onPress={() => {
+                        setSelectedGate(gate);
+                        setShowGateDropdown(false);
+                      }}
+                    >
+                      <View style={styles.dropdownItemContent}>
+                        <Text style={[styles.dropdownItemText, { color: theme.text }]}>
+                          {gate.name}
+                        </Text>
+                        <Text style={[styles.dropdownItemSubtext, { color: theme.secondaryText }]}>
+                          {gate.type}
+                        </Text>
+                      </View>
+                      {selectedGate?.id === gate.id && (
+                        <CheckCircle2 size={20} color={COLORS.primary.light} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.selectedShiftSummary}>
+            <Text style={[styles.summaryTitle, { color: theme.text }]}>Selected Shift Details</Text>
+            <View style={[styles.summaryContent, { backgroundColor: theme.card }]}>
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: theme.secondaryText }]}>Shift:</Text>
+                <Text style={[styles.summaryValue, { color: theme.text }]}>{selectedShift.name}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: theme.secondaryText }]}>Time:</Text>
+                <Text style={[styles.summaryValue, { color: theme.text }]}>
+                  {selectedShift.start_time.slice(0, 5)} - {selectedShift.end_time.slice(0, 5)}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: theme.secondaryText }]}>Station:</Text>
+                <Text style={[styles.summaryValue, { color: theme.text }]}>
+                  {selectedStation ? `${selectedStation.name} (${selectedStation.short_name})` : 'Not selected'}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: theme.secondaryText }]}>Gate:</Text>
+                <Text style={[styles.summaryValue, { color: theme.text }]}>
+                  {selectedGate ? `${selectedGate.name} (${selectedGate.type})` : 'Not selected'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.modalButtons}>
+            <Button
+              title="Cancel"
+              onPress={() => setShowAssignModal(false)}
+              variant="outlined"
+              style={styles.modalButton}
+            />
+            <Button
+              title={assigningShift ? "Assigning..." : "Assign Shift"}
+              onPress={handleSelfAssign}
+              disabled={assigningShift || !selectedStation || !selectedGate}
+              style={styles.modalButton}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 
   if (loading) {
     return (
@@ -438,6 +1051,25 @@ export default function AttendanceScreen() {
                 </Text>
               </View>
               
+              {/* Add display for Station and Gate names */}
+              {shiftInfo?.stationName && (
+                <View style={styles.shiftInfoDetail}>
+                  <MapPin size={16} color={theme.secondaryText} />
+                  <Text style={[styles.shiftText, { color: theme.secondaryText }]}>
+                    Station: {shiftInfo.stationName}
+                  </Text>
+                </View>
+              )}
+
+              {shiftInfo?.gateName && (
+                <View style={styles.shiftInfoDetail}>
+                  <MapPin size={16} color={theme.secondaryText} />
+                  <Text style={[styles.shiftText, { color: theme.secondaryText }]}>
+                    Gate: {shiftInfo.gateName}
+                  </Text>
+                </View>
+              )}
+              
               {attendance && (
                 <View style={styles.checkInOutContainer}>
                   <View style={styles.timeContainer}>
@@ -471,12 +1103,6 @@ export default function AttendanceScreen() {
                       </View>
                     )}
                   </View>
-                </View>
-              )}
-
-              {selfieImage && (
-                <View style={styles.selfieContainer}>
-                  <Image source={{ uri: selfieImage }} style={styles.selfieImage} />
                 </View>
               )}
 
@@ -538,33 +1164,72 @@ export default function AttendanceScreen() {
                 <Text style={[styles.noHistoryText, { color: theme.secondaryText }]}>Welcome! No attendance history yet. Your records will appear here from tomorrow after you log today's shift.</Text>
               </View>
             ) : (
-              attendanceHistory.map((record, index) => (
-                <Card key={index} variant="outlined" style={cardStyle(styles.historyCard)}>
-                  <View style={styles.historyHeader}>
-                    <Text style={[styles.historyDate, { color: theme.text }]}>{formatDate(record.date)}</Text>
-                    <StatusBadge 
-                      label={record.status} 
-                      type={getStatusColor(record.status)}
-                      size="sm"
-                    />
-                  </View>
-                  <View style={styles.historyTimes}>
-                    <View style={styles.historyTimeItem}>
-                      <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check In</Text>
-                      <Text style={[styles.historyTimeValue, { color: theme.text }]}>{formatTime(record.check_in_time!)}</Text>
+              attendanceHistory.map((record, index) => {
+                // Find the assigned shift for this attendance record using user_shift_assignment_id
+                const assignedShiftForHistory = assignedShifts.find(shift => 
+                  shift.id === record.user_shift_assignment_id
+                );
+                
+                // Find station and gate names using IDs from the assigned shift or the nested object if available
+                const historyStationName = assignedShiftForHistory?.station_id
+                  ? stations.find(s => s.id === assignedShiftForHistory.station_id)?.name
+                  : record.user_shift_assignment?.station?.name || 'Unknown';
+                  
+                const historyGateName = assignedShiftForHistory?.gate_id
+                  ? gates.find(g => g.id === assignedShiftForHistory.gate_id)?.name
+                  : record.user_shift_assignment?.gate?.name || 'Unknown';
+
+                return (
+                  <Card key={index} variant="outlined" style={cardStyle(styles.historyCard)}>
+                    <View style={styles.historyHeader}>
+                      <Text style={[styles.historyDate, { color: theme.text }]}>{formatDate(record.date)}</Text>
+                      <StatusBadge 
+                        label={record.status} 
+                        type={getStatusColor(record.status)}
+                        size="sm"
+                      />
                     </View>
-                    <View style={styles.historyTimeItem}>
-                      <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check Out</Text>
-                      <Text style={[styles.historyTimeValue, { color: theme.text }]}>{formatTime(record.check_out_time!)}</Text>
+                    {/* Display Station and Gate details */}
+                    <View style={styles.historyDetails}>
+                      <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>
+                        Station: {historyStationName}
+                      </Text>
+                      <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>
+                        Gate: {historyGateName}
+                      </Text>
                     </View>
-                  </View>
-                </Card>
-              ))
+                    <View style={styles.historyTimes}>
+                      <View style={styles.historyTimeItem}>
+                        <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check In</Text>
+                        <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_in_time ? formatTime(record.check_in_time) : '--:--'}</Text>
+                      </View>
+                      <View style={styles.historyTimeItem}>
+                        <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check Out</Text>
+                        <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_out_time ? formatTime(record.check_out_time) : '--:--'}</Text>
+                      </View>
+                    </View>
+                  </Card>
+                );
+              })
             )}
           </>
         )}
 
+        {!shiftInfo && !attendance && (
+          <Card style={styles.emptyStateCard}>
+            <Text style={[styles.emptyStateText, { color: theme.text }]}>
+              No shift assigned for today
+            </Text>
+            <Button
+              title="Self Assign Shift"
+              onPress={() => setShowAssignModal(true)}
+              style={styles.selfAssignButton}
+            />
+          </Card>
+        )}
+
       </ScrollView>
+      {renderAssignModal()}
     </SafeAreaView>
   );
 }
@@ -783,5 +1448,228 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     gap: SPACING.sm,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxHeight: '80%',
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+  },
+  modalTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: FONT_SIZES.xl,
+    marginBottom: SPACING.lg,
+    textAlign: 'center',
+  },
+  formGroup: {
+    marginBottom: SPACING.lg,
+  },
+  label: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZES.md,
+    marginBottom: SPACING.sm,
+  },
+  pickerContainer: {
+    maxHeight: 150,
+    borderWidth: 1,
+    borderColor: COLORS.neutral[300],
+    borderRadius: BORDER_RADIUS.md,
+  },
+  pickerItem: {
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.neutral[300],
+  },
+  selectedItem: {
+    backgroundColor: COLORS.primary.light + '20',
+  },
+  pickerItemText: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.md,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: SPACING.lg,
+  },
+  modalButton: {
+    flex: 1,
+    marginHorizontal: SPACING.sm,
+  },
+  selfAssignButton: {
+    marginTop: SPACING.md,
+  },
+  shiftSelector: {
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+    gap: SPACING.sm,
+  },
+  shiftOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  selectedShift: {
+    borderColor: COLORS.primary.light,
+    borderWidth: 2,
+    backgroundColor: COLORS.primary.light + '10',
+  },
+  shiftOptionContent: {
+    flex: 1,
+  },
+  shiftName: {
+    fontFamily: FONTS.bold,
+    fontSize: FONT_SIZES.md,
+    marginBottom: SPACING.xs,
+  },
+  shiftTime: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+  },
+  selectedShiftSummary: {
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  summaryTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: FONT_SIZES.md,
+    marginBottom: SPACING.sm,
+  },
+  summaryContent: {
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.xs,
+  },
+  summaryLabel: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZES.sm,
+  },
+  summaryValue: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+  },
+  dropdownButton: {
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.neutral[300],
+    padding: SPACING.md,
+  },
+  dropdownButtonContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dropdownButtonText: {
+    fontFamily: FONTS.bold,
+    fontSize: FONT_SIZES.md,
+  },
+  dropdownButtonSubtext: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+    marginTop: SPACING.xs,
+  },
+  dropdownArrow: {
+    transform: [{ rotate: '90deg' }],
+  },
+  dropdownArrowOpen: {
+    transform: [{ rotate: '-90deg' }],
+  },
+  dropdownList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: SPACING.xs,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.neutral[300],
+    zIndex: 1000,
+    maxHeight: 200,
+    shadowColor: COLORS.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  dropdownItem: {
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dropdownItemSelected: {
+    backgroundColor: COLORS.primary.light + '10',
+  },
+  dropdownItemContent: {
+    flex: 1,
+  },
+  dropdownItemText: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZES.md,
+  },
+  dropdownItemSubtext: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+    marginTop: SPACING.xs,
+  },
+  dropdownButtonDisabled: {
+    opacity: 0.5,
+  },
+  assignedShiftsContainer: {
+    marginBottom: SPACING.lg,
+  },
+  assignedShiftCard: {
+    marginBottom: SPACING.sm,
+  },
+  assignedShiftContent: {
+    padding: SPACING.sm,
+  },
+  assignedShiftHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  assignedShiftDate: {
+    fontFamily: FONTS.bold,
+    fontSize: FONT_SIZES.md,
+  },
+  assignedShiftDetails: {
+    marginTop: SPACING.xs,
+  },
+  assignedShiftDetail: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+    marginBottom: SPACING.xs,
+  },
+  shiftInfoDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.xs, // Adjust spacing as needed
+  },
+  historyDetails: {
+    marginBottom: SPACING.sm,
+  },
+  historyDetailText: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+    marginBottom: SPACING.xs / 2,
   },
 });

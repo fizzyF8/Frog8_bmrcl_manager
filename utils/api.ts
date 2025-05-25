@@ -90,6 +90,40 @@ export interface TVMResponse {
   device: TVM;
 }
 
+// Add nested interface for user_shift_assignment within Attendance
+interface UserShiftAssignmentInAttendance {
+  id: number;
+  user_id: number;
+  shift_id: number;
+  station_id: number;
+  gate_id: number;
+  assigned_date: string;
+  assigned_by_user_id: number;
+  organization_id: number;
+  is_completed: number;
+  is_active: boolean;
+  // Include nested shift, station, gate based on the API response structure
+  shift?: { // Optional nested shift details
+    id: number;
+    name: string;
+    start_time: string;
+    end_time: string;
+    // Add other shift properties if needed
+  };
+  station?: { // Optional nested station details
+    id: number;
+    name: string;
+    short_name?: string; // Optional short_name if present
+    // Add other station properties if needed
+  };
+  gate?: { // Optional nested gate details
+    id: number;
+    name: string;
+    type?: string; // Optional type if present
+    // Add other gate properties if needed
+  };
+}
+
 export interface Attendance {
   id: number;
   user_id: number;
@@ -103,6 +137,8 @@ export interface Attendance {
   check_out_latitude: string | null;
   check_out_longitude: string | null;
   remarks: string | null;
+  // Add the nested user_shift_assignment object
+  user_shift_assignment?: UserShiftAssignmentInAttendance;
 }
 
 export interface ShiftAttendanceResponse {
@@ -123,6 +159,79 @@ export interface CheckOutRequest {
   user_shift_assignment_id: number;
   check_out_latitude: string;
   check_out_longitude: string;
+}
+
+export interface Station {
+  id: number;
+  name: string;
+  short_name: string;
+  code: string;
+  latitude: number | null;
+  longitude: number | null;
+  organization_id: number;
+  is_active: number;
+}
+
+export interface Gate {
+  id: number;
+  name: string;
+  type: string;
+  station_id: number;
+  organization_id: number;
+  status: number;
+}
+
+export interface Shift {
+  id: number;
+  name: string;
+  description: string;
+  start_time: string;
+  end_time: string;
+  break_start_time: string;
+  break_end_time: string;
+  is_night_shift: number;
+  is_active: number;
+}
+
+export interface AssignShiftRequest {
+  assigned_date: string;
+  user_id: number;
+  shift_id: number;
+  station_id: number;
+  gate_id: number;
+  organization_id?: number;
+  assign_user_id?: number;
+}
+
+export interface AssignShift {
+  id: number;
+  user_id: number;
+  shift_id: number;
+  station_id: number;
+  gate_id: number;
+  assigned_date: string;
+  assigned_by_user_id: number;
+  organization_id: number;
+  is_completed: number;
+  is_active: boolean;
+}
+
+export interface AssignShiftResponse {
+  status: string;
+  message: string;
+  assign_shifts: AssignShift[];
+}
+
+export interface StationsResponse {
+  status: string;
+  message: string;
+  stations: Station[];
+}
+
+export interface GatesResponse {
+  status: string;
+  message: string;
+  gates: Gate[];
 }
 
 export const authApi = {
@@ -176,6 +285,33 @@ export const attendanceApi = {
   checkOutAttendance: async (data: CheckOutRequest) => {
     const response = await api.post('/assign_shift/attendance/checkout', data);
     return response.data;
+  },
+  assignShift: async (data: AssignShiftRequest): Promise<AssignShiftResponse> => {
+    const response = await api.post<AssignShiftResponse>('/shift_assign/store', data);
+    return response.data;
+  },
+  getStations: async (): Promise<StationsResponse> => {
+    const response = await api.get<StationsResponse>('/stations/list');
+    return response.data;
+  },
+  getGates: async (): Promise<GatesResponse> => {
+    const response = await api.get<GatesResponse>('/gates/list');
+    return response.data;
+  },
+  getAssignedShifts: async (): Promise<AssignShiftResponse> => {
+    const response = await fetch('https://demo.ctrmv.com/veriphy/public/api/v1/shift_assign/list', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${await AsyncStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch assigned shifts');
+    }
+
+    return response.json();
   },
 };
 
