@@ -123,17 +123,47 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return distance;
 };
 
-// Function to format time
-const formatTime = (dateString: string) => {
-  console.log('Formatting time:', dateString); // Log input string
-  const date = new Date(dateString);
-  console.log('Date object (UTC):', date.toISOString()); // Log Date object in UTC
-  console.log('Date object (Local):', date.toString()); // Log Date object in local timezone
-  return date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: true 
-  });
+// Modify the formatTime function to handle different time string formats without timezone conversion
+const formatTime = (dateString: string | null) => {
+  if (!dateString) return '--:--';
+
+  let timeString = dateString;
+
+  // If it's an ISO 8601 string (contains 'T'), extract the time part
+  if (dateString.includes('T')) {
+    try {
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        // Extract HH:MM:SS from the Date object based on UTC to avoid local time conversion issues
+        const hours = date.getUTCHours();
+        const minutes = date.getUTCMinutes();
+        const seconds = date.getUTCSeconds();
+        timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      } else {
+         console.warn(`Could not parse ISO 8601 time string: ${dateString}`);
+         return dateString; // Fallback
+      }
+    } catch (error) {
+      console.warn(`Error parsing ISO 8601 time string: ${dateString}`, error);
+      return dateString; // Fallback on error
+    }
+  }
+
+  // Now, format the extracted or original timeString (HH:MM:SS or similar)
+  const timeParts = timeString.split(':');
+  if (timeParts.length >= 2) {
+    let hours = parseInt(timeParts[0], 10);
+    const minutes = timeParts[1];
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    const paddedMinutes = minutes.padStart(2, '0');
+    return `${hours}:${paddedMinutes} ${ampm}`;
+  } else {
+    // If parsing fails, return the original string or a default
+    console.warn(`Could not parse time string after extraction: ${dateString}`);
+    return dateString; // Fallback to showing the original string
+  }
 };
 
 export default function AttendanceScreen() {
@@ -358,8 +388,10 @@ export default function AttendanceScreen() {
       console.log('Gates data:', gates);     // Log gates data
       console.log('Current Day Shift object:', currentDayShift); // Log the shift object
 
-      // Set attendance history (excluding today's record)
-      setAttendanceHistory(attendanceResponse.attendance.filter((a: Attendance) => a.date !== todayStr));
+      // Set attendance history: include all records, and if today's is complete, it will naturally be included.
+      // If today's attendance is not complete or doesn't exist, only historical records are shown.
+      // The check for including today's attendance in history will implicitly happen in the render logic now.
+      setAttendanceHistory(attendanceResponse.attendance);
 
       setSyncState('synced');
       setLastSyncTime(new Date());
