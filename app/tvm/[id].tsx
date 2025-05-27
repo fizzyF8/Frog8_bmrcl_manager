@@ -146,7 +146,7 @@ export default function TVMDetailsScreen() {
             <View>
               <TouchableOpacity onPress={handleSerialNumberPress}>
                 <Text style={[styles.serialNumber, { color: theme.text }]}>
-                  Kiosk: {tvm.serial_number.replace("F8TVM200025032025", "")}
+                  S/N: {tvm.serial_number}
                 </Text>
               </TouchableOpacity>
               <Text style={[styles.modelText, { color: theme.secondaryText }]}>Model: {tvm.model_number}</Text>
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   serialNumber: {
-    fontSize: FONT_SIZES.xl,
+    fontSize: FONT_SIZES.md,
     fontFamily: FONTS.bold,
     marginBottom: SPACING.xs,
   },
