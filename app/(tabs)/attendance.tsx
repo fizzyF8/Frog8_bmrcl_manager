@@ -461,11 +461,14 @@ export default function AttendanceScreen() {
 
       const distance = calculateDistance(coords.latitude, coords.longitude, stationCoords.latitude, stationCoords.longitude);
       const distanceInMeters = Math.round(distance);
+      const distanceText = distanceInMeters < 1000 
+        ? `${distanceInMeters} meters` 
+        : `${(distanceInMeters / 1000).toFixed(1)} km`;
 
       if (distance > GEOFENCE_RADIUS_METERS) {
         Alert.alert(
           'Outside Station Geofence',
-          `You are approximately ${distanceInMeters} meters away from ${shiftInfo.stationName}. Do you want to force mark attendance?`,
+          `You are approximately ${distanceText} away from ${shiftInfo.stationName}. Do you want to force mark attendance?`,
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Force Mark', onPress: async () => {
@@ -550,11 +553,14 @@ export default function AttendanceScreen() {
 
       const distance = calculateDistance(coords.latitude, coords.longitude, stationCoords.latitude, stationCoords.longitude);
       const distanceInMeters = Math.round(distance);
+      const distanceText = distanceInMeters < 1000 
+        ? `${distanceInMeters} meters` 
+        : `${(distanceInMeters / 1000).toFixed(1)} km`;
 
       if (distance > GEOFENCE_RADIUS_METERS) {
         Alert.alert(
           'Outside Station Geofence',
-          `You are approximately ${distanceInMeters} meters away from ${shiftInfo.stationName}. Do you want to force mark attendance?`,
+          `You are approximately ${distanceText} away from ${shiftInfo.stationName}. Do you want to force mark attendance?`,
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Force Mark', onPress: async () => {
