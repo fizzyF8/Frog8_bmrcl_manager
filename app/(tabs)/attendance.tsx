@@ -217,7 +217,7 @@ export default function AttendanceScreen() {
       id: 2,
       name: 'Evening',
       start_time: '14:00:00',
-      end_time: '22:00:00'
+      end_time: '23:00:00'
     }
   ];
 
@@ -708,39 +708,6 @@ export default function AttendanceScreen() {
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
           <Text style={[styles.modalTitle, { color: theme.text }]}>Self Assign Shift</Text>
-
-          {/* Show assigned shifts if any */}
-          {assignedShifts.length > 0 && (
-            <View style={styles.assignedShiftsContainer}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Your Assigned Shifts</Text>
-              {assignedShifts
-                .filter(shift => shift.user_id === 6) // Filter for current user
-                .map((shift, index) => (
-                  <Card key={index} variant="outlined" style={styles.assignedShiftCard}>
-                    <View style={styles.assignedShiftContent}>
-                      <View style={styles.assignedShiftHeader}>
-                        <Text style={[styles.assignedShiftDate, { color: theme.text }]}>
-                          {new Date(shift.assigned_date).toLocaleDateString()}
-                        </Text>
-                        <StatusBadge 
-                          label={shift.is_completed ? 'Completed' : 'Active'} 
-                          type={shift.is_completed ? 'success' : 'warning'}
-                          size="sm"
-                        />
-                      </View>
-                      <View style={styles.assignedShiftDetails}>
-                        <Text style={[styles.assignedShiftDetail, { color: theme.secondaryText }]}>
-                          Station: {stations.find(s => s.id === shift.station_id)?.name || 'Unknown'}
-                        </Text>
-                        <Text style={[styles.assignedShiftDetail, { color: theme.secondaryText }]}>
-                          Gate: {gates.find(g => g.id === shift.gate_id)?.name || 'Unknown'}
-                        </Text>
-                      </View>
-                    </View>
-                  </Card>
-                ))}
-            </View>
-          )}
 
           {/* Shift Dropdown */}
           <View style={styles.formGroup}>
@@ -1495,7 +1462,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
-    maxHeight: '80%',
+    maxHeight: '90%',
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
   },
@@ -1616,7 +1583,7 @@ const styles = StyleSheet.create({
   },
   dropdownButtonSubtext: {
     fontFamily: FONTS.regular,
-    fontSize: FONT_SIZES.sm,
+    fontSize: FONT_SIZES.xs,
     marginTop: SPACING.xs,
   },
   dropdownArrow: {
@@ -1634,8 +1601,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.neutral[300],
-    zIndex: 1000,
-    maxHeight: 200,
+    zIndex: 100,
     shadowColor: COLORS.black,
     shadowOffset: {
       width: 0,
