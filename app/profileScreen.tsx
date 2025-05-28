@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Switch, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
-import { User, Mail, Phone, FileText, LogOut, Moon, Bell, Shield, CircleHelp as HelpCircle, ChevronRight, Calendar, MapPin, Building } from 'lucide-react-native';
+import { User, Mail, Phone, FileText, LogOut, Moon, Bell, Shield, CircleHelp as HelpCircle, ChevronRight, Calendar, MapPin, Building, ArrowLeft } from 'lucide-react-native';
 import Card from '@/components/ui/Card';
 import SyncStatus from '@/components/ui/SyncStatus';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -10,6 +10,7 @@ import { useAuth } from '@/context/auth';
 import { useTheme } from '@/context/theme';
 import { getTimeElapsedString } from '@/utils/time';
 import { authApi, ProfileResponse } from '@/utils/api';
+import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -20,6 +21,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   const handleLogout = () => {
     logout();
@@ -62,7 +64,12 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.background }}>
         <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }] }>
-          <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
+          </View>
           <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
         </View>
         <View style={styles.loadingContainer} >
@@ -77,7 +84,12 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.background }}>
         <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }] }>
-          <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
+          </View>
           <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
         </View>
         <View style={styles.loadingContainer} >
@@ -93,7 +105,12 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.background }}>
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }] }>
-        <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={24} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
+        </View>
         <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent}
@@ -331,5 +348,12 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: FONT_SIZES.md,
     fontFamily: FONTS.medium,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: SPACING.sm,
   },
 }); 

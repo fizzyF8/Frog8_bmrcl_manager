@@ -5,7 +5,7 @@ import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS, SHADOWS } from '@/co
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import SyncStatus from '@/components/ui/SyncStatus';
-import { Search, Filter, Building2, Monitor, User, Clock } from 'lucide-react-native';
+import { Search, Filter, Building2, Monitor, User, Clock, ArrowLeft } from 'lucide-react-native';
 import { TVM, tvmApi, LocationDetails } from '@/utils/api';
 import { useTheme } from '@/context/theme';
 import { getTimeElapsedString } from '@/utils/time';
@@ -358,7 +358,12 @@ export default function TVMsScreen() {
     return (
       <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-          <Text style={[styles.title, { color: theme.text }]}>TVMs</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: theme.text }]}>TVMs</Text>
+          </View>
           {lastSyncTime && (
             <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime)} />
           )}
@@ -375,7 +380,12 @@ export default function TVMsScreen() {
     return (
       <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-          <Text style={[styles.title, { color: theme.text }]}>TVMs</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: theme.text }]}>TVMs</Text>
+          </View>
           {lastSyncTime && (
             <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime)} />
           )}
@@ -393,7 +403,12 @@ export default function TVMsScreen() {
   return (
     <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Text style={[styles.title, { color: theme.text }]}>TVMs</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={24} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.text }]}>TVMs</Text>
+        </View>
         {lastSyncTime && (
           <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime)} />
         )}
@@ -614,6 +629,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: SPACING.sm,
   },
   title: {
     fontSize: FONT_SIZES.xl,

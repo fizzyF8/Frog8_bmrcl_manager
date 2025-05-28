@@ -5,7 +5,7 @@ import { COLORS, SPACING, FONTS, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '@/co
 import { useTheme } from '@/context/theme';
 import { Bell, CheckCircle, AlertCircle, Info, Clock, ArrowLeft, Check } from 'lucide-react-native';
 import Card from '@/components/ui/Card';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 type NotificationType = 'success' | 'warning' | 'info' | 'error';
 
@@ -86,6 +86,7 @@ const formatTimestamp = (timestamp: string) => {
 
 const NotificationsScreen = () => {
   const { theme } = useTheme();
+  const router = useRouter();
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -102,9 +103,12 @@ const NotificationsScreen = () => {
       borderBottomColor: theme.border,
       ...SHADOWS.sm,
     },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
     backButton: {
-      padding: SPACING.xs,
-      borderRadius: BORDER_RADIUS.full,
+      marginRight: SPACING.sm,
     },
     headerTitle: {
       fontSize: FONT_SIZES.lg,
@@ -236,13 +240,15 @@ const NotificationsScreen = () => {
   return (
     <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={24} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={24} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Notifications</Text>
+        </View>
         <TouchableOpacity 
           style={styles.markAllButton}
           onPress={() => {

@@ -5,9 +5,12 @@ import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/t
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
-import { Clock, CircleCheck as CheckCircle, Calendar, Ticket, User, CirclePlus as PlusCircle } from 'lucide-react-native';
+import { Clock, CircleCheck as CheckCircle, Calendar, Ticket, User, CirclePlus as PlusCircle, ArrowLeft } from 'lucide-react-native';
 import { Task, TaskPriority, TaskStatus } from '@/types';
 import { useTheme } from '@/context/theme';
+import { useRouter } from 'expo-router';
+import SyncStatus from '@/components/ui/SyncStatus';
+import { getTimeElapsedString } from '@/utils/time';
 
 // Mock data
 const mockTasks: Task[] = [
@@ -90,6 +93,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: SPACING.sm,
   },
   title: {
     fontFamily: FONTS.bold,
@@ -187,8 +197,11 @@ const styles = StyleSheet.create({
   },
 });
 
-function TasksScreen() {
+export default function TasksScreen() {
+  const router = useRouter();
   const { theme } = useTheme();
+  const [syncState, setSyncState] = useState<'offline' | 'syncing' | 'synced' | 'error'>('synced');
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<TaskStatus | 'ALL'>('ALL');
 
   const filteredTasks = selectedFilter === 'ALL'
@@ -306,7 +319,13 @@ function TasksScreen() {
   return (
     <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Tasks</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={24} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.text }]}>Tasks</Text>
+        </View>
+        <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
       </View>
 
       <View style={[styles.filterTabs, { borderBottomColor: theme.border }]}>
@@ -408,6 +427,4 @@ function TasksScreen() {
       </TouchableOpacity>
     </SafeAreaView>
   );
-}
-
-export default TasksScreen; 
+} 
