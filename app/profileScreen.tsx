@@ -65,7 +65,7 @@ export default function ProfileScreen() {
           <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
           <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
         </View>
-        <View style={styles.loadingContainer}>
+        <View style={styles.loadingContainer} >
           <ActivityIndicator size="large" color={COLORS.primary.light} />
           <Text style={{ color: theme.text, marginTop: SPACING.md }}>Loading profile...</Text>
         </View>
@@ -80,7 +80,7 @@ export default function ProfileScreen() {
           <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
           <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
         </View>
-        <View style={styles.loadingContainer}>
+        <View style={styles.loadingContainer} >
           <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
           <TouchableOpacity style={[styles.retryButton, { backgroundColor: COLORS.primary.light }]} onPress={fetchProfileData}>
             <Text style={styles.retryButtonText}>Retry</Text>
@@ -251,8 +251,8 @@ const styles = StyleSheet.create({
   },
   organizationText: {
     fontSize: FONT_SIZES.sm,
-    fontFamily: FONTS.regular,
-    color: COLORS.neutral[500],
+    fontFamily: FONTS.medium,
+    color: COLORS.neutral[600],
     marginLeft: SPACING.xs,
   },
   locationContainer: {
@@ -261,39 +261,37 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: FONT_SIZES.sm,
-    fontFamily: FONTS.regular,
-    color: COLORS.neutral[500],
+    fontFamily: FONTS.medium,
+    color: COLORS.neutral[600],
     marginLeft: SPACING.xs,
   },
   card: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
   },
   cardTitle: {
     fontSize: FONT_SIZES.lg,
     fontFamily: FONTS.bold,
-    color: COLORS.neutral[900],
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.neutral[200],
   },
   contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.neutral[200],
+    marginBottom: SPACING.sm,
   },
   contactText: {
     fontSize: FONT_SIZES.md,
     fontFamily: FONTS.regular,
-    color: COLORS.neutral[800],
-    marginLeft: SPACING.md,
+    marginLeft: SPACING.sm,
   },
   settingItem: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.neutral[200],
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
   },
   settingItemLeft: {
     flexDirection: 'row',
@@ -301,39 +299,37 @@ const styles = StyleSheet.create({
   },
   settingName: {
     fontSize: FONT_SIZES.md,
-    fontFamily: FONTS.medium,
-    color: COLORS.neutral[800],
-    marginLeft: SPACING.md,
+    fontFamily: FONTS.regular,
+    marginLeft: SPACING.sm,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    marginVertical: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.error.light + '20',
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: SPACING.lg,
   },
   logoutText: {
     fontSize: FONT_SIZES.md,
     fontFamily: FONTS.medium,
-    color: COLORS.error.light,
-    marginLeft: SPACING.xs,
+    marginLeft: SPACING.sm,
   },
   errorText: {
-    fontFamily: FONTS.medium,
     fontSize: FONT_SIZES.md,
-    color: COLORS.error.light,
+    fontFamily: FONTS.medium,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
   retryButton: {
-    backgroundColor: COLORS.primary.light,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.md,
   },
   retryButtonText: {
     color: COLORS.white,
-    fontFamily: FONTS.medium,
     fontSize: FONT_SIZES.md,
+    fontFamily: FONTS.medium,
   },
-});
+}); 

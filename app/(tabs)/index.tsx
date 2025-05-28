@@ -5,7 +5,7 @@ import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/t
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import SyncStatus from '@/components/ui/SyncStatus';
-import { Bell, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react-native';
+import { Bell, ChevronRight, ArrowUp, ArrowDown, User } from 'lucide-react-native';
 import { useAuth } from '@/context/auth';
 import api, { TVMsResponse, TVM, tvmApi } from '@/utils/api';
 import { useTheme } from '@/context/theme';
@@ -428,7 +428,12 @@ export default function Dashboard() {
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <View>
           <Text style={[styles.greeting, { color: theme.secondaryText }]}>{getTimeBasedGreeting()},</Text>
-          <Text style={[styles.name, { color: theme.text }]}>{user?.name || 'User'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={[styles.name, { color: theme.text }]}>{user?.name || 'User'}</Text>
+            <TouchableOpacity onPress={() => router.push('/profileScreen')}>
+              <User size={24} color={theme.text} style={{ marginLeft: SPACING.xs }} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.headerRight}>
           <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
@@ -465,7 +470,7 @@ export default function Dashboard() {
               <Text style={[styles.sectionTitle, { color: theme.text }]}>TVM Status</Text>
               <TouchableOpacity 
                 style={styles.viewAllButton}
-                onPress={() => router.push('/(tabs)/tvms')}
+                onPress={() => router.push('/tvmScreen')}
               >
                 <Text style={[styles.viewAllText, { color: COLORS.primary.light }]}>View All</Text>
                 <ChevronRight size={16} color={COLORS.primary.light} />
@@ -498,7 +503,7 @@ export default function Dashboard() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Tasks Overview</Text>
-              <TouchableOpacity style={styles.viewAllButton}>
+              <TouchableOpacity style={styles.viewAllButton} onPress={() => router.push('/tasksScreen')}>
                 <Text style={[styles.viewAllText, { color: COLORS.primary.light }]}>View All</Text>
                 <ChevronRight size={16} color={COLORS.primary.light} />
               </TouchableOpacity>

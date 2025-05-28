@@ -252,25 +252,23 @@ function TasksScreen() {
         </View>
         <Text style={[styles.taskId, { color: theme.secondaryText }]}>{item.id}</Text>
       </View>
-      
       <Text style={[styles.taskTitle, { color: theme.text }]}>{item.title}</Text>
       <Text style={[styles.taskDescription, { color: theme.secondaryText }]}>{item.description}</Text>
-      
       <View style={styles.taskDetails}>
         {item.tvmId && (
           <View style={styles.taskDetailItem}>
             <Ticket size={16} color={theme.secondaryText} />
-            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>{item.tvmId}</Text>
+            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>TVM ID: {item.tvmId}</Text>
           </View>
         )}
-        
+
         {item.assignedToId && (
           <View style={styles.taskDetailItem}>
             <User size={16} color={theme.secondaryText} />
-            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>RM: Suman</Text>
+            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>Assigned To: {item.assignedToId}</Text>
           </View>
         )}
-        
+
         {item.dueDate && (
           <View style={styles.taskDetailItem}>
             <Calendar size={16} color={theme.secondaryText} />
@@ -278,114 +276,138 @@ function TasksScreen() {
           </View>
         )}
       </View>
-      
-      <View style={styles.taskActions}>
-        {item.status === TaskStatus.PENDING && (
-          <Button
-            title="Start Task"
-            size="sm"
-            color="primary"
-            leftIcon={<Clock size={16} color={COLORS.white} />}
-          />
-        )}
-        
-        {item.status === TaskStatus.IN_PROGRESS && (
-          <Button
-            title="Complete Task"
-            size="sm"
-            color="success"
-            leftIcon={<CheckCircle size={16} color={COLORS.white} />}
-          />
-        )}
-      </View>
+
+      {item.status !== TaskStatus.COMPLETED && item.status !== TaskStatus.CANCELLED && (
+        <View style={styles.taskActions}>
+          {item.status === TaskStatus.PENDING && (
+            <Button
+              title="Start Task"
+              size="sm"
+              variant="filled"
+              color="primary"
+              leftIcon={<Clock size={16} color={COLORS.white} />}
+            />
+          )}
+
+          {item.status === TaskStatus.IN_PROGRESS && (
+            <Button
+              title="Complete Task"
+              size="sm"
+              variant="filled"
+              color="success"
+              leftIcon={<CheckCircle size={16} color={COLORS.white} />}
+            />
+          )}
+        </View>
+      )}
     </Card>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.card }]}>
+    <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
         <Text style={[styles.title, { color: theme.text }]}>Tasks</Text>
       </View>
-      <View style={[styles.filterTabs, { backgroundColor: theme.card }]}>
+
+      <View style={[styles.filterTabs, { borderBottomColor: theme.border }]}>
         <TouchableOpacity
           style={[
-            styles.filterTab, 
-            { backgroundColor: theme.card, borderColor: theme.border },
-            selectedFilter === 'ALL' && styles.activeFilterTab
+            styles.filterTab,
+            selectedFilter === 'ALL' && styles.activeFilterTab,
+            { borderColor: theme.border, backgroundColor: selectedFilter === 'ALL' ? COLORS.primary.light : theme.card }
           ]}
           onPress={() => setSelectedFilter('ALL')}
         >
           <Text style={[
-            styles.filterTabText, 
-            { color: theme.secondaryText },
-            selectedFilter === 'ALL' && styles.activeFilterTabText
+            styles.filterTabText,
+            selectedFilter === 'ALL' && styles.activeFilterTabText,
+            { color: selectedFilter === 'ALL' ? COLORS.white : theme.text }
           ]}>
             All
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
-            styles.filterTab, 
-            { backgroundColor: theme.card, borderColor: theme.border },
-            selectedFilter === TaskStatus.PENDING && styles.activeFilterTab
+            styles.filterTab,
+            selectedFilter === TaskStatus.PENDING && styles.activeFilterTab,
+            { borderColor: theme.border, backgroundColor: selectedFilter === TaskStatus.PENDING ? COLORS.primary.light : theme.card }
           ]}
           onPress={() => setSelectedFilter(TaskStatus.PENDING)}
         >
           <Text style={[
-            styles.filterTabText, 
-            { color: theme.secondaryText },
-            selectedFilter === TaskStatus.PENDING && styles.activeFilterTabText
+            styles.filterTabText,
+            selectedFilter === TaskStatus.PENDING && styles.activeFilterTabText,
+            { color: selectedFilter === TaskStatus.PENDING ? COLORS.white : theme.text }
           ]}>
             Pending
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
-            styles.filterTab, 
-            { backgroundColor: theme.card, borderColor: theme.border },
-            selectedFilter === TaskStatus.IN_PROGRESS && styles.activeFilterTab
+            styles.filterTab,
+            selectedFilter === TaskStatus.IN_PROGRESS && styles.activeFilterTab,
+            { borderColor: theme.border, backgroundColor: selectedFilter === TaskStatus.IN_PROGRESS ? COLORS.primary.light : theme.card }
           ]}
           onPress={() => setSelectedFilter(TaskStatus.IN_PROGRESS)}
         >
           <Text style={[
-            styles.filterTabText, 
-            { color: theme.secondaryText },
-            selectedFilter === TaskStatus.IN_PROGRESS && styles.activeFilterTabText
+            styles.filterTabText,
+            selectedFilter === TaskStatus.IN_PROGRESS && styles.activeFilterTabText,
+            { color: selectedFilter === TaskStatus.IN_PROGRESS ? COLORS.white : theme.text }
           ]}>
             In Progress
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[
-            styles.filterTab, 
-            { backgroundColor: theme.card, borderColor: theme.border },
-            selectedFilter === TaskStatus.COMPLETED && styles.activeFilterTab
+            styles.filterTab,
+            selectedFilter === TaskStatus.COMPLETED && styles.activeFilterTab,
+            { borderColor: theme.border, backgroundColor: selectedFilter === TaskStatus.COMPLETED ? COLORS.primary.light : theme.card }
           ]}
           onPress={() => setSelectedFilter(TaskStatus.COMPLETED)}
         >
           <Text style={[
-            styles.filterTabText, 
-            { color: theme.secondaryText },
-            selectedFilter === TaskStatus.COMPLETED && styles.activeFilterTabText
+            styles.filterTabText,
+            selectedFilter === TaskStatus.COMPLETED && styles.activeFilterTabText,
+            { color: selectedFilter === TaskStatus.COMPLETED ? COLORS.white : theme.text }
           ]}>
             Completed
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterTab,
+            selectedFilter === TaskStatus.CANCELLED && styles.activeFilterTab,
+            { borderColor: theme.border, backgroundColor: selectedFilter === TaskStatus.CANCELLED ? COLORS.primary.light : theme.card }
+          ]}
+          onPress={() => setSelectedFilter(TaskStatus.CANCELLED)}
+        >
+          <Text style={[
+            styles.filterTabText,
+            selectedFilter === TaskStatus.CANCELLED && styles.activeFilterTabText,
+            { color: selectedFilter === TaskStatus.CANCELLED ? COLORS.white : theme.text }
+          ]}>
+            Cancelled
+          </Text>
+        </TouchableOpacity>
       </View>
-      
+
       <FlatList
         data={filteredTasks}
-        renderItem={renderItem}
         keyExtractor={(item) => item.id}
+        renderItem={renderItem}
         contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
       />
-      
-      <TouchableOpacity style={[styles.fab, { backgroundColor: COLORS.primary.light }]}>
+
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: COLORS.primary.light }]}
+        onPress={() => console.log('Add new task')}
+      >
         <PlusCircle size={24} color={COLORS.white} />
       </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
-export default TasksScreen;
+export default TasksScreen; 

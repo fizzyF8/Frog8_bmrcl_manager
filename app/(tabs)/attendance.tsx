@@ -713,7 +713,7 @@ export default function AttendanceScreen() {
           <View style={styles.formGroup}>
             <Text style={[styles.label, { color: theme.text }]}>Select Shift</Text>
             <TouchableOpacity
-              style={[styles.dropdownButton, { backgroundColor: theme.card }]}
+              style={[styles.dropdownButton, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={() => {
                 setShowShiftDropdown(!showShiftDropdown);
                 setShowStationDropdown(false);
@@ -741,7 +741,7 @@ export default function AttendanceScreen() {
             </TouchableOpacity>
 
             {showShiftDropdown && (
-              <View style={[styles.dropdownList, { backgroundColor: theme.card }]}>
+              <View style={[styles.dropdownList, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 {SHIFT_OPTIONS.map((shift) => (
                   <TouchableOpacity
                     key={shift.id}
@@ -776,7 +776,7 @@ export default function AttendanceScreen() {
           <View style={styles.formGroup}>
             <Text style={[styles.label, { color: theme.text }]}>Select Station</Text>
             <TouchableOpacity
-              style={[styles.dropdownButton, { backgroundColor: theme.card }]}
+              style={[styles.dropdownButton, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={() => {
                 setShowStationDropdown(!showStationDropdown);
                 setShowShiftDropdown(false);
@@ -806,7 +806,7 @@ export default function AttendanceScreen() {
             </TouchableOpacity>
 
             {showStationDropdown && (
-              <View style={[styles.dropdownList, { backgroundColor: theme.card }]}>
+              <View style={[styles.dropdownList, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 {stations.map((station) => (
                   <TouchableOpacity
                     key={station.id}
@@ -844,7 +844,7 @@ export default function AttendanceScreen() {
             <TouchableOpacity
               style={[
                 styles.dropdownButton,
-                { backgroundColor: theme.card },
+                { backgroundColor: theme.card, borderColor: theme.border },
                 !selectedStation && styles.dropdownButtonDisabled
               ]}
               onPress={() => {
@@ -882,7 +882,7 @@ export default function AttendanceScreen() {
             </TouchableOpacity>
 
             {showGateDropdown && selectedStation && (
-              <View style={[styles.dropdownList, { backgroundColor: theme.card }]}>
+              <View style={[styles.dropdownList, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 {gates
                   .filter(gate => gate.station_id === selectedStation.id)
                   .map((gate) => (
@@ -1483,13 +1483,11 @@ const styles = StyleSheet.create({
   pickerContainer: {
     maxHeight: 150,
     borderWidth: 1,
-    borderColor: COLORS.neutral[300],
     borderRadius: BORDER_RADIUS.md,
   },
   pickerItem: {
     padding: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.neutral[300],
   },
   selectedItem: {
     backgroundColor: COLORS.primary.light + '20',
@@ -1569,7 +1567,6 @@ const styles = StyleSheet.create({
   dropdownButton: {
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.neutral[300],
     padding: SPACING.md,
   },
   dropdownButtonContent: {
@@ -1600,7 +1597,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.neutral[300],
     zIndex: 100,
     shadowColor: COLORS.black,
     shadowOffset: {

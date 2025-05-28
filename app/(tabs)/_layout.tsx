@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { COLORS, FONTS, FONT_SIZES } from '@/constants/theme';
-import { LayoutDashboard, Ticket, CircleCheck as CheckCircle, Users, User, FileText } from 'lucide-react-native';
+import { LayoutDashboard, CircleCheck as CheckCircle, Users, User, FileText } from 'lucide-react-native';
 import { useTheme } from '@/context/theme';
 
 const styles = StyleSheet.create({
@@ -43,15 +43,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="tvms"
-        options={{
-          title: 'TVMs',
-          tabBarIcon: ({ color, size }) => (
-            <Ticket size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="tasks"
         options={{
           title: 'Tasks',
@@ -75,15 +66,6 @@ export default function TabLayout() {
           title: 'Attendance',
           tabBarIcon: ({ color, size }) => (
             <Users size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <User size={size} color={color} />
           ),
         }}
       />

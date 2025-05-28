@@ -1,46 +1,16 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, ViewStyle, RefreshControl, Animated, ScrollView, Image, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, ViewStyle, Animated, FlatList, RefreshControl, TextInput, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS, SHADOWS } from '@/constants/theme';
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import SyncStatus from '@/components/ui/SyncStatus';
-import { Search, Filter, MapPin, Activity, CreditCard, Clock, Building2, Monitor, User } from 'lucide-react-native';
-import { tvmApi } from '@/utils/api';
-import { useRouter } from 'expo-router';
+import { Search, Filter, Building2, Monitor, User, Clock } from 'lucide-react-native';
+import { TVM, tvmApi, LocationDetails } from '@/utils/api';
 import { useTheme } from '@/context/theme';
 import { getTimeElapsedString } from '@/utils/time';
+import { router, useRouter } from 'expo-router';
 
-interface LocationDetails {
-  station: string;
-  gate: string;
-  gate_type: string;
-  uptime: string;
-  transaction: string;
-  station_image?: string;
-  kiosk_image?: string;
-  assigned_staff?: {
-    id: number;
-    name: string;
-    role: string;
-    shift: string;
-  }[];
-}
-
-interface TVM {
-  id: number;
-  name: string;
-  type: string;
-  model_number: string;
-  serial_number: string;
-  ip_address: string | null;
-  mac_address: string | null;
-  organization_id: number;
-  status: string;
-  location_details?: LocationDetails;
-}
-
-// Helper functions
 const getStatusType = (status: string) => {
   switch (status) {
     case '1':
@@ -127,63 +97,40 @@ const TVMCard = React.memo(({ item, onPress, theme }: { item: TVM; onPress: () =
               </View>
             </View>
 
-            <View style={styles.locationDetails}>
-              <View style={styles.locationRow}>
-                <MapPin size={16} color={theme.secondaryText} />
-                <Text style={[styles.locationText, { color: theme.secondaryText }]}>
-                  {item.location_details.station} - Gate {item.location_details.gate} ({item.location_details.gate_type})
-                </Text>
-              </View>
-              <View style={styles.metricsRow}>
-                <View style={styles.metric}>
-                  <Activity size={16} color={theme.secondaryText} />
-                  <Text style={[styles.metricText, { color: theme.secondaryText }]}>
-                    Uptime: {item.location_details.uptime}%
-                  </Text>
-                </View>
-                <View style={styles.metric}>
-                  <CreditCard size={16} color={theme.secondaryText} />
-                  <Text style={[styles.metricText, { color: theme.secondaryText }]}>
-                    Transactions: {item.location_details.transaction}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.staffContainer}>
-                <Text style={[styles.staffTitle, { color: theme.text }]}>Assigned Staff</Text>
-                <View style={styles.staffRow}>
-                  <View style={styles.staffInfo}>
-                    <View style={styles.staffProfile}>
-                      <View style={[styles.profileImagePlaceholder, { backgroundColor: COLORS.neutral[100] }]}>
-                        <User size={24} color={COLORS.neutral[400]} />
-                      </View>
-                      <View>
-                        <Text style={[styles.staffName, { color: theme.text }]}>Suman</Text>
-                        <Text style={[styles.staffRole, { color: theme.secondaryText }]}>Station Supervisor</Text>
-                      </View>
+            <View style={styles.staffContainer}>
+              <Text style={[styles.staffTitle, { color: theme.text }]}>Assigned Staff</Text>
+              <View style={styles.staffRow}>
+                <View style={styles.staffInfo}>
+                  <View style={styles.staffProfile}>
+                    <View style={[styles.profileImagePlaceholder, { backgroundColor: COLORS.neutral[100] }]}>
+                      <User size={24} color={COLORS.neutral[400]} />
+                    </View>
+                    <View>
+                      <Text style={[styles.staffName, { color: theme.text }]}>Suman</Text>
+                      <Text style={[styles.staffRole, { color: theme.secondaryText }]}>Station Supervisor</Text>
                     </View>
                   </View>
-                  <View style={styles.staffShift}>
-                    <Clock size={14} color={theme.secondaryText} />
-                    <Text style={[styles.staffShiftText, { color: theme.secondaryText }]}>Morning Shift</Text>
-                  </View>
                 </View>
-                <View style={[styles.staffRow, { marginTop: SPACING.xs }]}>
-                  <View style={styles.staffInfo}>
-                    <View style={styles.staffProfile}>
-                      <View style={[styles.profileImagePlaceholder, { backgroundColor: COLORS.neutral[100] }]}>
-                        <User size={24} color={COLORS.neutral[400]} />
-                      </View>
-                      <View>
-                        <Text style={[styles.staffName, { color: theme.text }]}>Ranjit</Text>
-                        <Text style={[styles.staffRole, { color: theme.secondaryText }]}>Gate Supervisor</Text>
-                      </View>
+                <View style={styles.staffShift}>
+                  <Clock size={14} color={theme.secondaryText} />
+                  <Text style={[styles.staffShiftText, { color: theme.secondaryText }]}>Morning Shift</Text>
+                </View>
+              </View>
+              <View style={[styles.staffRow, { marginTop: SPACING.xs }]}>
+                <View style={styles.staffInfo}>
+                  <View style={styles.staffProfile}>
+                    <View style={[styles.profileImagePlaceholder, { backgroundColor: COLORS.neutral[100] }]}>
+                      <User size={24} color={COLORS.neutral[400]} />
+                    </View>
+                    <View>
+                      <Text style={[styles.staffName, { color: theme.text }]}>Ranjit</Text>
+                      <Text style={[styles.staffRole, { color: theme.secondaryText }]}>Gate Supervisor</Text>
                     </View>
                   </View>
-                  <View style={styles.staffShift}>
-                    <Clock size={14} color={theme.secondaryText} />
-                    <Text style={[styles.staffShiftText, { color: theme.secondaryText }]}>Evening Shift</Text>
-                  </View>
+                </View>
+                <View style={styles.staffShift}>
+                  <Clock size={14} color={theme.secondaryText} />
+                  <Text style={[styles.staffShiftText, { color: theme.secondaryText }]}>Evening Shift</Text>
                 </View>
               </View>
             </View>
@@ -218,6 +165,7 @@ export default function TVMsScreen() {
   const searchBarHeight = useRef(new Animated.Value(1)).current;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSearchFocused = useRef(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   // Get unique stations from TVMs
   const stations = useMemo(() => {
@@ -311,9 +259,12 @@ export default function TVMsScreen() {
       clearTimeout(hideTimer.current);
     }
     
-    if (!searchQuery && !isSearchFocused.current) {
+    // Don't hide search bar if any filters are applied
+    const hasActiveFilters = !showAllMachines || selectedStation || selectedGate || searchQuery;
+    
+    if (!searchQuery && !isSearchFocused.current && !hasActiveFilters) {
       hideTimer.current = setTimeout(() => {
-        if (!searchQuery && !isSearchFocused.current) {
+        if (!searchQuery && !isSearchFocused.current && !hasActiveFilters) {
           Animated.timing(searchBarHeight, {
             toValue: 0,
             duration: 200,
@@ -377,10 +328,13 @@ export default function TVMsScreen() {
     const isScrollingDown = currentScrollY > lastScrollY.current;
     const isScrollingUp = currentScrollY < lastScrollY.current;
     
+    // Check if any filters are applied
+    const hasActiveFilters = !showAllMachines || selectedStation || selectedGate || searchQuery;
+    
     // Only trigger if we've scrolled more than 10 pixels
     if (Math.abs(currentScrollY - lastScrollY.current) > 10) {
-      if (isScrollingDown && showSearch && !searchQuery && !isSearchFocused.current) {
-        // Hide search bar
+      if (isScrollingDown && showSearch && !searchQuery && !isSearchFocused.current && !hasActiveFilters) {
+        // Hide search bar only if no filters are applied
         Animated.timing(searchBarHeight, {
           toValue: 0,
           duration: 200,
@@ -447,7 +401,7 @@ export default function TVMsScreen() {
 
       <Animated.View 
         style={[
-          styles.searchContainer,
+          styles.searchContainer, 
           {
             transform: [{
               translateY: searchBarHeight.interpolate({
@@ -476,105 +430,153 @@ export default function TVMsScreen() {
         </View>
         <TouchableOpacity 
           style={[styles.filterButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-          onPress={() => {
-            handleSearchFocus();
-          }}
+          onPress={() => setShowFilterModal(true)}
         >
           <Filter size={20} color={theme.secondaryText} />
         </TouchableOpacity>
       </Animated.View>
 
-      <View style={[styles.filterContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <View style={styles.filterRow}>
-          <Text style={[styles.filterLabel, { color: theme.text }]}>Show:</Text>
-          <TouchableOpacity
-            style={[
-              styles.filterOption,
-              showAllMachines && { backgroundColor: COLORS.primary.light }
-            ]}
-            onPress={() => setShowAllMachines(true)}
-          >
-            <Text style={[styles.filterOptionText, { color: showAllMachines ? COLORS.white : theme.text }]}>
-              All Machines
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterOption,
-              !showAllMachines && { backgroundColor: COLORS.primary.light }
-            ]}
-            onPress={() => setShowAllMachines(false)}
-          >
-            <Text style={[styles.filterOptionText, { color: !showAllMachines ? COLORS.white : theme.text }]}>
-              Selected
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.filterRow}>
-          <Text style={[styles.filterLabel, { color: theme.text }]}>Station:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-            <TouchableOpacity
-              style={[
-                styles.filterOption,
-                !selectedStation && { backgroundColor: COLORS.primary.light }
-              ]}
-              onPress={() => setSelectedStation(null)}
-            >
-              <Text style={[styles.filterOptionText, { color: !selectedStation ? COLORS.white : theme.text }]}>
-                All
-              </Text>
-            </TouchableOpacity>
-            {stations.map((station) => (
-              <TouchableOpacity
-                key={station}
-                style={[
-                  styles.filterOption,
-                  selectedStation === station && { backgroundColor: COLORS.primary.light }
-                ]}
-                onPress={() => setSelectedStation(station)}
-              >
-                <Text style={[styles.filterOptionText, { color: selectedStation === station ? COLORS.white : theme.text }]}>
-                  {station}
-                </Text>
+      <Modal
+        visible={showFilterModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Filter TVMs</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
+                <Text style={[styles.closeButton, { color: theme.text }]}>✕</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+            </View>
 
-        {selectedStation && (
-          <View style={styles.filterRow}>
-            <Text style={[styles.filterLabel, { color: theme.text }]}>Gate:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-              <TouchableOpacity
-                style={[
-                  styles.filterOption,
-                  !selectedGate && { backgroundColor: COLORS.primary.light }
-                ]}
-                onPress={() => setSelectedGate(null)}
-              >
-                <Text style={[styles.filterOptionText, { color: !selectedGate ? COLORS.white : theme.text }]}>
-                  All
-                </Text>
-              </TouchableOpacity>
-              {gates.map((gate) => (
-                <TouchableOpacity
-                  key={gate}
-                  style={[
-                    styles.filterOption,
-                    selectedGate === gate && { backgroundColor: COLORS.primary.light }
-                  ]}
-                  onPress={() => setSelectedGate(gate)}
-                >
-                  <Text style={[styles.filterOptionText, { color: selectedGate === gate ? COLORS.white : theme.text }]}>
-                    Gate {gate}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.filterSection}>
+                <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Show</Text>
+                <View style={styles.filterRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      showAllMachines && { backgroundColor: COLORS.primary.light }
+                    ]}
+                    onPress={() => setShowAllMachines(true)}
+                  >
+                    <Text style={[styles.filterOptionText, { color: showAllMachines ? COLORS.white : theme.text }]}>
+                      All Machines
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      !showAllMachines && { backgroundColor: COLORS.primary.light }
+                    ]}
+                    onPress={() => setShowAllMachines(false)}
+                  >
+                    <Text style={[styles.filterOptionText, { color: !showAllMachines ? COLORS.white : theme.text }]}>
+                      Selected
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.filterSection}>
+                <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Station</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      !selectedStation && { backgroundColor: COLORS.primary.light }
+                    ]}
+                    onPress={() => setSelectedStation(null)}
+                  >
+                    <Text style={[styles.filterOptionText, { color: !selectedStation ? COLORS.white : theme.text }]}>
+                      All
+                    </Text>
+                  </TouchableOpacity>
+                  {stations.map((station) => (
+                    <TouchableOpacity
+                      key={station}
+                      style={[
+                        styles.filterOption,
+                        selectedStation === station && { backgroundColor: COLORS.primary.light }
+                      ]}
+                      onPress={() => setSelectedStation(station)}
+                    >
+                      <Text style={[styles.filterOptionText, { color: selectedStation === station ? COLORS.white : theme.text }]}>
+                        {station}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {selectedStation && (
+                <View style={styles.filterSection}>
+                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Gate</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                    <TouchableOpacity
+                      style={[
+                        styles.filterOption,
+                        !selectedGate && { backgroundColor: COLORS.primary.light }
+                      ]}
+                      onPress={() => setSelectedGate(null)}
+                    >
+                      <Text style={[styles.filterOptionText, { color: !selectedGate ? COLORS.white : theme.text }]}>
+                        All
+                      </Text>
+                    </TouchableOpacity>
+                    {gates.map((gate) => (
+                      <TouchableOpacity
+                        key={gate}
+                        style={[
+                          styles.filterOption,
+                          selectedGate === gate && { backgroundColor: COLORS.primary.light }
+                        ]}
+                        onPress={() => setSelectedGate(gate)}
+                      >
+                        <Text style={[styles.filterOptionText, { color: selectedGate === gate ? COLORS.white : theme.text }]}>
+                          {gate}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              <View style={styles.filterSection}>
+                <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Status</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                  {['1', '2', '3', '0', null].map((statusValue) => {
+                    const label = statusValue === '1' ? 'Operational' : statusValue === '2' ? 'Maintenance' : statusValue === '3' ? 'Error' : statusValue === '0' ? 'Offline' : 'All';
+                    return (
+                      <TouchableOpacity
+                        key={statusValue}
+                        style={[
+                          styles.filterOption,
+                          filterStatus === statusValue && { backgroundColor: COLORS.primary.light }
+                        ]}
+                        onPress={() => setFilterStatus(statusValue)}
+                      >
+                        <Text style={[styles.filterOptionText, { color: filterStatus === statusValue ? COLORS.white : theme.text }]}>
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
             </ScrollView>
+
+            <TouchableOpacity 
+              style={[styles.applyFilterButton, { backgroundColor: COLORS.primary.light }]} 
+              onPress={() => setShowFilterModal(false)}
+            >
+              <Text style={styles.applyFilterButtonText}>Apply Filters</Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
+        </View>
+      </Modal>
 
       <FlatList
         data={filteredTVMs}
@@ -623,7 +625,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     gap: SPACING.sm,
     position: 'absolute',
-    top: 56,
+    top: 110,
     left: 0,
     right: 0,
     zIndex: 1,
@@ -745,33 +747,72 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     fontFamily: FONTS.medium,
   },
-  filterContainer: {
-    padding: SPACING.sm,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
     borderBottomWidth: 1,
+    paddingBottom: SPACING.sm,
+    borderColor: COLORS.neutral[300],
+  },
+  modalTitle: {
+    fontSize: FONT_SIZES.xl,
+    fontFamily: FONTS.bold,
+  },
+  closeButton: {
+    fontSize: FONT_SIZES.xl,
+    fontFamily: FONTS.medium,
+  },
+  modalBody: {
+    flexGrow: 1,
+  },
+  filterSection: {
+    marginBottom: SPACING.md,
+  },
+  filterSectionTitle: {
+    fontSize: FONT_SIZES.md,
+    fontFamily: FONTS.medium,
+    marginBottom: SPACING.sm,
   },
   filterRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  filterLabel: {
-    fontSize: FONT_SIZES.sm,
-    fontFamily: FONTS.medium,
-    marginRight: SPACING.sm,
-    minWidth: 60,
-  },
-  filterScroll: {
-    flex: 1,
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
   },
   filterOption: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderRadius: BORDER_RADIUS.sm,
-    marginRight: SPACING.xs,
     backgroundColor: COLORS.neutral[100],
+    borderWidth: 1,
+    borderColor: COLORS.neutral[300],
   },
   filterOptionText: {
     fontSize: FONT_SIZES.sm,
+    fontFamily: FONTS.medium,
+  },
+  applyFilterButton: {
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: 'center',
+  },
+  applyFilterButtonText: {
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
     fontFamily: FONTS.medium,
   },
   locationImages: {
@@ -788,16 +829,15 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   placeholderImage: {
-    width: '100%',
-    height: 120,
-    borderRadius: BORDER_RADIUS.sm,
+    aspectRatio: 16/9,
+    borderRadius: BORDER_RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: SPACING.xs,
   },
   placeholderText: {
-    fontSize: FONT_SIZES.xs,
+    fontSize: FONT_SIZES.sm,
     fontFamily: FONTS.medium,
+    marginTop: SPACING.xs,
   },
   staffContainer: {
     marginTop: SPACING.sm,
@@ -806,23 +846,23 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.neutral[200],
   },
   staffTitle: {
-    fontSize: FONT_SIZES.sm,
-    fontFamily: FONTS.medium,
-    marginBottom: SPACING.xs,
+    fontSize: FONT_SIZES.md,
+    fontFamily: FONTS.bold,
+    marginBottom: SPACING.sm,
   },
   staffRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SPACING.xs,
   },
   staffInfo: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   staffProfile: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    marginRight: SPACING.md,
   },
   profileImagePlaceholder: {
     width: 40,
@@ -830,22 +870,27 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: SPACING.sm,
   },
   staffName: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: FONT_SIZES.md,
     fontFamily: FONTS.medium,
   },
   staffRole: {
-    fontSize: FONT_SIZES.xs,
+    fontSize: FONT_SIZES.sm,
     fontFamily: FONTS.regular,
+    color: COLORS.neutral[600],
   },
   staffShift: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
   },
   staffShiftText: {
-    fontSize: FONT_SIZES.xs,
-    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+    fontFamily: FONTS.medium,
+    marginLeft: SPACING.xs,
   },
-});
+  filterScroll: {
+    flex: 1,
+  },
+}); 
