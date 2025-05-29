@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
 import { taskApi, Task, tvmApi, TVM, authApi, UserProfile } from '@/utils/api';
+import CreateTaskModal from '@/components/task/CreateTaskModal';
 
 const styles = StyleSheet.create({
   container: {
@@ -137,6 +138,7 @@ export default function TasksScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [devices, setDevices] = useState<{ [key: number]: TVM }>({});
   const [users, setUsers] = useState<{ [key: number]: UserProfile }>({});
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
 
   useEffect(() => {
     fetchTasks();
@@ -483,10 +485,16 @@ export default function TasksScreen() {
       {/* Floating Action Button */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: COLORS.primary.light }]}
-        onPress={() => console.log('Add new task')}
+        onPress={() => setIsCreateModalVisible(true)}
       >
         <PlusCircle size={24} color={COLORS.white} />
       </TouchableOpacity>
+
+      <CreateTaskModal
+        visible={isCreateModalVisible}
+        onClose={() => setIsCreateModalVisible(false)}
+        onTaskCreated={fetchTasks}
+      />
     </SafeAreaView>
   );
 } 

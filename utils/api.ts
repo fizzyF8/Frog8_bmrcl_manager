@@ -253,6 +253,23 @@ export interface TasksResponse {
   taskdata: Task[];
 }
 
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  organization_id: number;
+  organization_name: string;
+  role: string;
+  status: string;
+}
+
+export interface UsersResponse {
+  status: string;
+  message: string;
+  user: User[];
+}
+
 export const authApi = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
     const response = await api.post<LoginResponse>('/login', {
@@ -270,6 +287,18 @@ export const authApi = {
   getProfile: async (): Promise<ProfileResponse> => {
     const response = await api.get<ProfileResponse>('/profile');
     return response.data;
+  },
+
+  getUsers: async (): Promise<UsersResponse> => {
+    try {
+      console.log('Calling getUsers API...');
+      const response = await api.get<UsersResponse>('/user/list');
+      console.log('getUsers API response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error in getUsers API call:', error);
+      throw error;
+    }
   },
 };
 
@@ -347,6 +376,18 @@ export const taskApi = {
 
   completeTask: async (taskId: number): Promise<{ status: string; message: string }> => {
     const response = await api.post<{ status: string; message: string }>(`/tasks/complete_task/${taskId}`);
+    return response.data;
+  },
+
+  createTask: async (taskData: {
+    title: string;
+    description: string;
+    assign_user_id: number;
+    priority: string;
+    due_datetime: string;
+    device_id: number;
+  }): Promise<{ status: string; message: string }> => {
+    const response = await api.post<{ status: string; message: string }>('/tasks/store', taskData);
     return response.data;
   },
 };
