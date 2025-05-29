@@ -1,86 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import { Clock, CircleCheck as CheckCircle, Calendar, Ticket, User, CirclePlus as PlusCircle, ArrowLeft } from 'lucide-react-native';
-import { Task, TaskPriority, TaskStatus } from '@/types';
 import { useTheme } from '@/context/theme';
 import { useRouter } from 'expo-router';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
-
-// Mock data
-const mockTasks: Task[] = [
-  {
-    id: 'T001',
-    title: 'Replace receipt paper in TVM-001',
-    description: 'TVM is running low on receipt paper. Replace with new roll from maintenance kit.',
-    tvmId: 'TVM001',
-    assignedToId: 'RM001',
-    createdById: 'M001',
-    priority: TaskPriority.HIGH,
-    status: TaskStatus.PENDING,
-    dueDate: '2023-06-20T15:00:00',
-    createdAt: '2023-06-15T09:30:00',
-    updatedAt: '2023-06-15T09:30:00',
-  },
-  {
-    id: 'T002',
-    title: 'Verify card reader functionality',
-    description: 'Customer reported issues with card reader on TVM-003. Test with different cards and report back findings.',
-    tvmId: 'TVM003',
-    assignedToId: 'RM001',
-    createdById: 'M001',
-    priority: TaskPriority.MEDIUM,
-    status: TaskStatus.IN_PROGRESS,
-    dueDate: '2023-06-19T17:00:00',
-    createdAt: '2023-06-15T10:15:00',
-    updatedAt: '2023-06-15T14:20:00',
-  },
-  {
-    id: 'T003',
-    title: 'Clear paper jam from TVM-002',
-    description: 'TVM-002 has reported a paper jam in the receipt printer. Clear jam and test printing.',
-    tvmId: 'TVM002',
-    assignedToId: 'RM001',
-    createdById: 'M001',
-    priority: TaskPriority.CRITICAL,
-    status: TaskStatus.PENDING,
-    dueDate: '2023-06-18T12:00:00',
-    createdAt: '2023-06-15T11:00:00',
-    updatedAt: '2023-06-15T11:00:00',
-  },
-  {
-    id: 'T004',
-    title: 'Update TVM software',
-    description: 'Apply latest software update to TVM-004. Update should take approximately 15 minutes.',
-    tvmId: 'TVM004',
-    assignedToId: 'RM001',
-    createdById: 'M001',
-    priority: TaskPriority.LOW,
-    status: TaskStatus.PENDING,
-    dueDate: '2023-06-25T09:00:00',
-    createdAt: '2023-06-15T13:45:00',
-    updatedAt: '2023-06-15T13:45:00',
-  },
-  {
-    id: 'T005',
-    title: 'Document new TVM installation',
-    description: 'Take photos and document the new TVM installation at Trinity Station. Upload to document management system.',
-    tvmId: 'TVM006',
-    assignedToId: 'RM001',
-    createdById: 'M001',
-    priority: TaskPriority.MEDIUM,
-    status: TaskStatus.COMPLETED,
-    completedAt: '2023-06-16T10:30:00',
-    dueDate: '2023-06-17T17:00:00',
-    createdAt: '2023-06-14T09:00:00',
-    updatedAt: '2023-06-16T10:30:00',
-  },
-];
+import { taskApi, Task, tvmApi, TVM, authApi, UserProfile } from '@/utils/api';
 
 const styles = StyleSheet.create({
   container: {
@@ -202,36 +132,88 @@ export default function TasksScreen() {
   const { theme } = useTheme();
   const [syncState, setSyncState] = useState<'offline' | 'syncing' | 'synced' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState<TaskStatus | 'ALL'>('ALL');
+  const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [devices, setDevices] = useState<{ [key: number]: TVM }>({});
+  const [users, setUsers] = useState<{ [key: number]: UserProfile }>({});
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setIsLoading(true);
+      setSyncState('syncing');
+      const response = await taskApi.getAllTasks();
+      setTasks(response.taskdata);
+      
+      // Fetch device details for all tasks
+      const deviceIds = [...new Set(response.taskdata.map(task => task.device_id))];
+      const devicePromises = deviceIds.map(id => tvmApi.getTVM(id));
+      const deviceResponses = await Promise.all(devicePromises);
+      const deviceMap = deviceResponses.reduce((acc, response) => {
+        if (response.status === 'true' && response.device) {
+          acc[response.device.id] = response.device;
+        }
+        return acc;
+      }, {} as { [key: number]: TVM });
+      setDevices(deviceMap);
+
+      // Fetch user profiles for all tasks
+      const userIds = [...new Set([
+        ...response.taskdata.map(task => task.assign_user_id),
+        ...response.taskdata.map(task => task.assign_by)
+      ])];
+      const userPromises = userIds.map(id => authApi.getProfile());
+      const userResponses = await Promise.all(userPromises);
+      const userMap = userResponses.reduce((acc, response) => {
+        if (response.status === 'true' && response.user) {
+          acc[response.user.id] = response.user;
+        }
+        return acc;
+      }, {} as { [key: number]: UserProfile });
+      setUsers(userMap);
+
+      setSyncState('synced');
+      setLastSyncTime(new Date());
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      setSyncState('error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredTasks = selectedFilter === 'ALL'
-    ? mockTasks
-    : mockTasks.filter(task => task.status === selectedFilter);
+    ? tasks
+    : tasks.filter(task => task.status === selectedFilter);
 
-  const getStatusType = (status: TaskStatus): 'success' | 'warning' | 'error' | 'info' | 'default' => {
-    switch (status) {
-      case TaskStatus.COMPLETED:
+  const getStatusType = (status: string): 'success' | 'warning' | 'error' | 'info' | 'default' => {
+    switch (status.toLowerCase()) {
+      case 'completed':
         return 'success';
-      case TaskStatus.IN_PROGRESS:
+      case 'in progress':
         return 'info';
-      case TaskStatus.PENDING:
+      case 'pending':
         return 'warning';
-      case TaskStatus.CANCELLED:
+      case 'cancelled':
         return 'error';
       default:
         return 'default';
     }
   };
 
-  const getPriorityType = (priority: TaskPriority): 'success' | 'warning' | 'error' | 'info' | 'default' => {
-    switch (priority) {
-      case TaskPriority.LOW:
+  const getPriorityType = (priority: string): 'success' | 'warning' | 'error' | 'info' | 'default' => {
+    switch (priority.toLowerCase()) {
+      case 'low':
         return 'info';
-      case TaskPriority.MEDIUM:
+      case 'medium':
         return 'warning';
-      case TaskPriority.HIGH:
+      case 'high':
         return 'error';
-      case TaskPriority.CRITICAL:
+      case 'critical':
         return 'error';
       default:
         return 'default';
@@ -247,6 +229,69 @@ export default function TasksScreen() {
       minute: '2-digit' 
     });
   };
+
+  const handleStartTask = async (taskId: number) => {
+    Alert.alert(
+      'Start Task',
+      'Are you sure you want to start this task?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Start',
+          onPress: async () => {
+            try {
+              setSyncState('syncing');
+              const response = await taskApi.startTask(taskId);
+              await fetchTasks(); // Refresh the task list
+              setSyncState('synced');
+              setLastSyncTime(new Date());
+              Alert.alert('Success', response.message || 'Task started successfully');
+            } catch (error) {
+              console.error('Error starting task:', error);
+              setSyncState('error');
+              Alert.alert('Error', 'Failed to start task. Please try again.');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const handleCompleteTask = async (taskId: number) => {
+    Alert.alert(
+      'Complete Task',
+      'Are you sure you want to mark this task as completed?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Complete',
+          onPress: async () => {
+            try {
+              setSyncState('syncing');
+              const response = await taskApi.completeTask(taskId);
+              await fetchTasks(); // Refresh the task list
+              setSyncState('synced');
+              setLastSyncTime(new Date());
+              Alert.alert('Success', response.message || 'Task completed successfully');
+            } catch (error) {
+              console.error('Error completing task:', error);
+              setSyncState('error');
+              Alert.alert('Error', 'Failed to complete task. Please try again.');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   const renderItem = ({ item }: { item: Task }) => (
     <Card variant="outlined" style={{ ...styles.taskCard, backgroundColor: theme.card, borderColor: theme.border }}>
       <View style={styles.taskHeader}>
@@ -268,47 +313,64 @@ export default function TasksScreen() {
       <Text style={[styles.taskTitle, { color: theme.text }]}>{item.title}</Text>
       <Text style={[styles.taskDescription, { color: theme.secondaryText }]}>{item.description}</Text>
       <View style={styles.taskDetails}>
-        {item.tvmId && (
+        {item.device_id && devices[item.device_id] && (
           <View style={styles.taskDetailItem}>
             <Ticket size={16} color={theme.secondaryText} />
-            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>TVM ID: {item.tvmId}</Text>
+            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>
+              Device: {devices[item.device_id].name} ({devices[item.device_id].serial_number})
+            </Text>
           </View>
         )}
 
-        {item.assignedToId && (
+        {item.assign_user_id && users[item.assign_user_id] && (
           <View style={styles.taskDetailItem}>
             <User size={16} color={theme.secondaryText} />
-            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>Assigned To: {item.assignedToId}</Text>
+            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>
+              Assigned To: {users[item.assign_user_id].name}
+            </Text>
           </View>
         )}
 
-        {item.dueDate && (
+        {item.assign_by && users[item.assign_by] && (
+          <View style={styles.taskDetailItem}>
+            <User size={16} color={theme.secondaryText} />
+            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>
+              Assigned By: {users[item.assign_by].name}
+            </Text>
+          </View>
+        )}
+
+        {item.due_datetime && (
           <View style={styles.taskDetailItem}>
             <Calendar size={16} color={theme.secondaryText} />
-            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>Due: {formatDate(item.dueDate)}</Text>
+            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>
+              Due: {formatDate(item.due_datetime)}
+            </Text>
           </View>
         )}
       </View>
 
-      {item.status !== TaskStatus.COMPLETED && item.status !== TaskStatus.CANCELLED && (
+      {item.status.toLowerCase() !== 'completed' && item.status.toLowerCase() !== 'cancelled' && (
         <View style={styles.taskActions}>
-          {item.status === TaskStatus.PENDING && (
+          {item.status.toLowerCase() === 'pending' && (
             <Button
               title="Start Task"
               size="sm"
               variant="filled"
               color="primary"
               leftIcon={<Clock size={16} color={COLORS.white} />}
+              onPress={() => handleStartTask(item.id)}
             />
           )}
 
-          {item.status === TaskStatus.IN_PROGRESS && (
+          {item.status.toLowerCase() === 'in progress' && (
             <Button
               title="Complete Task"
               size="sm"
               variant="filled"
               color="success"
               leftIcon={<CheckCircle size={16} color={COLORS.white} />}
+              onPress={() => handleCompleteTask(item.id)}
             />
           )}
         </View>
@@ -348,15 +410,15 @@ export default function TasksScreen() {
         <TouchableOpacity
           style={[
             styles.filterTab,
-            selectedFilter === TaskStatus.PENDING && styles.activeFilterTab,
-            { borderColor: theme.border, backgroundColor: selectedFilter === TaskStatus.PENDING ? COLORS.primary.light : theme.card }
+            selectedFilter === 'pending' && styles.activeFilterTab,
+            { borderColor: theme.border, backgroundColor: selectedFilter === 'pending' ? COLORS.primary.light : theme.card }
           ]}
-          onPress={() => setSelectedFilter(TaskStatus.PENDING)}
+          onPress={() => setSelectedFilter('pending')}
         >
           <Text style={[
             styles.filterTabText,
-            selectedFilter === TaskStatus.PENDING && styles.activeFilterTabText,
-            { color: selectedFilter === TaskStatus.PENDING ? COLORS.white : theme.text }
+            selectedFilter === 'pending' && styles.activeFilterTabText,
+            { color: selectedFilter === 'pending' ? COLORS.white : theme.text }
           ]}>
             Pending
           </Text>
@@ -364,15 +426,15 @@ export default function TasksScreen() {
         <TouchableOpacity
           style={[
             styles.filterTab,
-            selectedFilter === TaskStatus.IN_PROGRESS && styles.activeFilterTab,
-            { borderColor: theme.border, backgroundColor: selectedFilter === TaskStatus.IN_PROGRESS ? COLORS.primary.light : theme.card }
+            selectedFilter === 'in progress' && styles.activeFilterTab,
+            { borderColor: theme.border, backgroundColor: selectedFilter === 'in progress' ? COLORS.primary.light : theme.card }
           ]}
-          onPress={() => setSelectedFilter(TaskStatus.IN_PROGRESS)}
+          onPress={() => setSelectedFilter('in progress')}
         >
           <Text style={[
             styles.filterTabText,
-            selectedFilter === TaskStatus.IN_PROGRESS && styles.activeFilterTabText,
-            { color: selectedFilter === TaskStatus.IN_PROGRESS ? COLORS.white : theme.text }
+            selectedFilter === 'in progress' && styles.activeFilterTabText,
+            { color: selectedFilter === 'in progress' ? COLORS.white : theme.text }
           ]}>
             In Progress
           </Text>
@@ -380,15 +442,15 @@ export default function TasksScreen() {
         <TouchableOpacity
           style={[
             styles.filterTab,
-            selectedFilter === TaskStatus.COMPLETED && styles.activeFilterTab,
-            { borderColor: theme.border, backgroundColor: selectedFilter === TaskStatus.COMPLETED ? COLORS.primary.light : theme.card }
+            selectedFilter === 'completed' && styles.activeFilterTab,
+            { borderColor: theme.border, backgroundColor: selectedFilter === 'completed' ? COLORS.primary.light : theme.card }
           ]}
-          onPress={() => setSelectedFilter(TaskStatus.COMPLETED)}
+          onPress={() => setSelectedFilter('completed')}
         >
           <Text style={[
             styles.filterTabText,
-            selectedFilter === TaskStatus.COMPLETED && styles.activeFilterTabText,
-            { color: selectedFilter === TaskStatus.COMPLETED ? COLORS.white : theme.text }
+            selectedFilter === 'completed' && styles.activeFilterTabText,
+            { color: selectedFilter === 'completed' ? COLORS.white : theme.text }
           ]}>
             Completed
           </Text>
@@ -396,15 +458,15 @@ export default function TasksScreen() {
         <TouchableOpacity
           style={[
             styles.filterTab,
-            selectedFilter === TaskStatus.CANCELLED && styles.activeFilterTab,
-            { borderColor: theme.border, backgroundColor: selectedFilter === TaskStatus.CANCELLED ? COLORS.primary.light : theme.card }
+            selectedFilter === 'cancelled' && styles.activeFilterTab,
+            { borderColor: theme.border, backgroundColor: selectedFilter === 'cancelled' ? COLORS.primary.light : theme.card }
           ]}
-          onPress={() => setSelectedFilter(TaskStatus.CANCELLED)}
+          onPress={() => setSelectedFilter('cancelled')}
         >
           <Text style={[
             styles.filterTabText,
-            selectedFilter === TaskStatus.CANCELLED && styles.activeFilterTabText,
-            { color: selectedFilter === TaskStatus.CANCELLED ? COLORS.white : theme.text }
+            selectedFilter === 'cancelled' && styles.activeFilterTabText,
+            { color: selectedFilter === 'cancelled' ? COLORS.white : theme.text }
           ]}>
             Cancelled
           </Text>
@@ -413,7 +475,7 @@ export default function TasksScreen() {
 
       <FlatList
         data={filteredTasks}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
       />

@@ -234,6 +234,25 @@ export interface GatesResponse {
   gates: Gate[];
 }
 
+export interface Task {
+  id: number;
+  title: string;
+  description: string;
+  assign_user_id: number;
+  priority: string;
+  status: string;
+  due_datetime: string;
+  assign_by: number;
+  device_id: number;
+  organization_id: number;
+}
+
+export interface TasksResponse {
+  status: string;
+  message: string;
+  taskdata: Task[];
+}
+
 export const authApi = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
     const response = await api.post<LoginResponse>('/login', {
@@ -312,6 +331,23 @@ export const attendanceApi = {
     }
 
     return response.json();
+  },
+};
+
+export const taskApi = {
+  getAllTasks: async (): Promise<TasksResponse> => {
+    const response = await api.get<TasksResponse>('/tasks/tasklist');
+    return response.data;
+  },
+
+  startTask: async (taskId: number): Promise<{ status: string; message: string }> => {
+    const response = await api.post<{ status: string; message: string }>(`/tasks/start_task/${taskId}`);
+    return response.data;
+  },
+
+  completeTask: async (taskId: number): Promise<{ status: string; message: string }> => {
+    const response = await api.post<{ status: string; message: string }>(`/tasks/complete_task/${taskId}`);
+    return response.data;
   },
 };
 

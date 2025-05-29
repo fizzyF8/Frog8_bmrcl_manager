@@ -115,8 +115,8 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   const Δλ = (lon2 - lon1) * Math.PI / 180;
 
   const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   const distance = R * c; // Distance in meters
@@ -140,8 +140,8 @@ const formatTime = (dateString: string | null) => {
         const seconds = date.getUTCSeconds();
         timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
       } else {
-         console.warn(`Could not parse ISO 8601 time string: ${dateString}`);
-         return dateString; // Fallback
+        console.warn(`Could not parse ISO 8601 time string: ${dateString}`);
+        return dateString; // Fallback
       }
     } catch (error) {
       console.warn(`Error parsing ISO 8601 time string: ${dateString}`, error);
@@ -179,7 +179,7 @@ export default function AttendanceScreen() {
   const [syncState, setSyncState] = useState<'syncing' | 'synced' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // New state for self-assignment
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [stations, setStations] = useState<Station[]>([]);
@@ -261,7 +261,7 @@ export default function AttendanceScreen() {
     try {
       setAssigningShift(true);
       const today = new Date().toISOString().split('T')[0].replace(/-/g, '/');
-      
+
       const assignData: AssignShiftRequest = {
         assigned_date: today,
         user_id: 6, // Hardcoded user ID as we know it's 6
@@ -274,7 +274,7 @@ export default function AttendanceScreen() {
       console.log('Assigning shift with data:', assignData); // Debug log
 
       const response = await attendanceApi.assignShift(assignData);
-      
+
       if (response.status === 'true') {
         Alert.alert('Success', 'Shift assigned successfully');
         setShowAssignModal(false);
@@ -320,7 +320,7 @@ export default function AttendanceScreen() {
 
       // Prioritize the shift info from the attendance list endpoint if available for today
       if (attendanceResponse.assign_shift && attendanceResponse.assign_shift.length > 0) {
-        const shiftFromAttendance = attendanceResponse.assign_shift.find(shift => 
+        const shiftFromAttendance = attendanceResponse.assign_shift.find(shift =>
           shift.user_id === 6 && // Use known user ID
           new Date(shift.start_date || shift.assigned_date).toISOString().split('T')[0] === todayStr
         );
@@ -328,57 +328,57 @@ export default function AttendanceScreen() {
         if (shiftFromAttendance) {
           const shiftDetails = SHIFT_OPTIONS.find(s => s.id === shiftFromAttendance.shift_id);
           if (shiftDetails) {
-             currentDayShift = {
-               id: shiftFromAttendance.id,
-               user_id: shiftFromAttendance.user_id,
-               shift_id: shiftFromAttendance.shift_id,
-               start_date: shiftFromAttendance.start_date || shiftFromAttendance.assigned_date, // Use either date field
-               end_date: shiftFromAttendance.end_date || null, // Use end_date if available
-               is_active: shiftFromAttendance.is_active,
-               name: shiftDetails.name,
-               startTime: shiftDetails.start_time.slice(0, 5),
-               endTime: shiftDetails.end_time.slice(0, 5),
-               stationName: shiftFromAttendance.station?.name, // Include station name from nested object
-               gateName: shiftFromAttendance.gate?.name,     // Include gate name from nested object
-               station_id: shiftFromAttendance.station?.id,
-               gate_id: shiftFromAttendance.gate?.id,
-             };
+            currentDayShift = {
+              id: shiftFromAttendance.id,
+              user_id: shiftFromAttendance.user_id,
+              shift_id: shiftFromAttendance.shift_id,
+              start_date: shiftFromAttendance.start_date || shiftFromAttendance.assigned_date, // Use either date field
+              end_date: shiftFromAttendance.end_date || null, // Use end_date if available
+              is_active: shiftFromAttendance.is_active,
+              name: shiftDetails.name,
+              startTime: shiftDetails.start_time.slice(0, 5),
+              endTime: shiftDetails.end_time.slice(0, 5),
+              stationName: shiftFromAttendance.station?.name, // Include station name from nested object
+              gateName: shiftFromAttendance.gate?.name,     // Include gate name from nested object
+              station_id: shiftFromAttendance.station?.id,
+              gate_id: shiftFromAttendance.gate?.id,
+            };
           }
         }
       }
 
       // If no shift found in the attendance list, check the full assigned shifts list
       if (!currentDayShift && assignShiftResponse.assign_shifts.length > 0) {
-         const shiftFromAssignedList = assignShiftResponse.assign_shifts.find(shift => 
-           shift.user_id === 6 && // Use known user ID
-           new Date(shift.assigned_date).toISOString().split('T')[0] === todayStr
-         );
+        const shiftFromAssignedList = assignShiftResponse.assign_shifts.find(shift =>
+          shift.user_id === 6 && // Use known user ID
+          new Date(shift.assigned_date).toISOString().split('T')[0] === todayStr
+        );
 
-         if (shiftFromAssignedList) {
-           const shiftDetails = SHIFT_OPTIONS.find(s => s.id === shiftFromAssignedList.shift_id);
+        if (shiftFromAssignedList) {
+          const shiftDetails = SHIFT_OPTIONS.find(s => s.id === shiftFromAssignedList.shift_id);
 
-           // Find station and gate names from the state using the IDs
-           const station = stations.find(s => s.id === shiftFromAssignedList.station_id);
-           const gate = gates.find(g => g.id === shiftFromAssignedList.gate_id);
+          // Find station and gate names from the state using the IDs
+          const station = stations.find(s => s.id === shiftFromAssignedList.station_id);
+          const gate = gates.find(g => g.id === shiftFromAssignedList.gate_id);
 
-           if (shiftDetails) {
-             currentDayShift = {
-               id: shiftFromAssignedList.id,
-               user_id: shiftFromAssignedList.user_id,
-               shift_id: shiftFromAssignedList.shift_id,
-               start_date: shiftFromAssignedList.assigned_date, // Use assigned_date
-               end_date: null, // No end date in this response structure
-               is_active: shiftFromAssignedList.is_active,
-               name: shiftDetails.name,
-               startTime: shiftDetails.start_time.slice(0, 5),
-               endTime: shiftDetails.end_time.slice(0, 5),
-               stationName: station?.name, // Include station name from state
-               gateName: gate?.name,     // Include gate name from state
-               station_id: station?.id,
-               gate_id: gate?.id,
-             };
-           }
-         }
+          if (shiftDetails) {
+            currentDayShift = {
+              id: shiftFromAssignedList.id,
+              user_id: shiftFromAssignedList.user_id,
+              shift_id: shiftFromAssignedList.shift_id,
+              start_date: shiftFromAssignedList.assigned_date, // Use assigned_date
+              end_date: null, // No end date in this response structure
+              is_active: shiftFromAssignedList.is_active,
+              name: shiftDetails.name,
+              startTime: shiftDetails.start_time.slice(0, 5),
+              endTime: shiftDetails.end_time.slice(0, 5),
+              stationName: station?.name, // Include station name from state
+              gateName: gate?.name,     // Include gate name from state
+              station_id: station?.id,
+              gate_id: gate?.id,
+            };
+          }
+        }
       }
 
       setShiftInfo(currentDayShift);
@@ -436,7 +436,7 @@ export default function AttendanceScreen() {
           check_in_latitude: coords.latitude.toString(),
           check_in_longitude: coords.longitude.toString(),
         });
-        
+
         Alert.alert('Success', 'Checked in successfully!');
         fetchAttendance(); // Refresh data after successful check-in
         return; // Exit the function
@@ -445,15 +445,15 @@ export default function AttendanceScreen() {
       const stationCoords = STATION_COORDINATES[shiftInfo.station_id];
 
       if (!stationCoords) {
-         // Proceed without geofence check if station coordinates are not defined
+        // Proceed without geofence check if station coordinates are not defined
         console.warn(`Coordinates not defined for station ID ${shiftInfo.station_id}. Proceeding with check-in.`);
-         // Directly call check-in API using shiftInfo.id
+        // Directly call check-in API using shiftInfo.id
         await attendanceApi.checkInAttendance({
           user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
           check_in_latitude: coords.latitude.toString(),
           check_in_longitude: coords.longitude.toString(),
         });
-        
+
         Alert.alert('Success', 'Checked in successfully!');
         fetchAttendance(); // Refresh data after successful check-in
         return; // Exit the function
@@ -461,8 +461,8 @@ export default function AttendanceScreen() {
 
       const distance = calculateDistance(coords.latitude, coords.longitude, stationCoords.latitude, stationCoords.longitude);
       const distanceInMeters = Math.round(distance);
-      const distanceText = distanceInMeters < 1000 
-        ? `${distanceInMeters} meters` 
+      const distanceText = distanceInMeters < 1000
+        ? `${distanceInMeters} meters`
         : `${(distanceInMeters / 1000).toFixed(1)} km`;
 
       if (distance > GEOFENCE_RADIUS_METERS) {
@@ -471,10 +471,11 @@ export default function AttendanceScreen() {
           `You are approximately ${distanceText} away from ${shiftInfo.stationName}. Do you want to force mark attendance?`,
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Force Mark', onPress: async () => {
+            {
+              text: 'Force Mark', onPress: async () => {
                 try {
                   setCheckingIn(true);
-                   // Call check-in API using shiftInfo.id for force mark
+                  // Call check-in API using shiftInfo.id for force mark
                   await attendanceApi.checkInAttendance({
                     user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
                     check_in_latitude: coords.latitude.toString(),
@@ -485,7 +486,7 @@ export default function AttendanceScreen() {
                 } catch (forceMarkErr: any) {
                   Alert.alert('Force Mark Failed', forceMarkErr.message || 'Unable to force mark check in.');
                 } finally {
-                   setCheckingIn(false);
+                  setCheckingIn(false);
                 }
               }
             }
@@ -522,8 +523,8 @@ export default function AttendanceScreen() {
 
       // Check if station information is available for geofence check, but proceed if not
       if (!shiftInfo.stationName || shiftInfo.station_id === undefined) {
-         console.warn('Attendance or Station information missing for geofence check. Proceeding with check-out.');
-         // Directly call check-out API using attendance.id and shiftInfo.id
+        console.warn('Attendance or Station information missing for geofence check. Proceeding with check-out.');
+        // Directly call check-out API using attendance.id and shiftInfo.id
         await attendanceApi.checkOutAttendance({
           attendance_id: attendance.id, // Use attendance ID from state
           user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
@@ -532,14 +533,14 @@ export default function AttendanceScreen() {
         });
         Alert.alert('Success', 'Checked out successfully!');
         fetchAttendance(); // Refresh data after successful check-out
-         return; // Exit the function
+        return; // Exit the function
       }
 
       const stationCoords = STATION_COORDINATES[shiftInfo.station_id];
 
       if (!stationCoords) {
         console.warn(`Coordinates not defined for station ID ${shiftInfo.station_id}. Proceeding with check-out.`);
-         // Directly call check-out API using attendance.id and shiftInfo.id
+        // Directly call check-out API using attendance.id and shiftInfo.id
         await attendanceApi.checkOutAttendance({
           attendance_id: attendance.id, // Use attendance ID from state
           user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
@@ -548,13 +549,13 @@ export default function AttendanceScreen() {
         });
         Alert.alert('Success', 'Checked out successfully!');
         fetchAttendance(); // Refresh data after successful check-out
-         return; // Exit the function
+        return; // Exit the function
       }
 
       const distance = calculateDistance(coords.latitude, coords.longitude, stationCoords.latitude, stationCoords.longitude);
       const distanceInMeters = Math.round(distance);
-      const distanceText = distanceInMeters < 1000 
-        ? `${distanceInMeters} meters` 
+      const distanceText = distanceInMeters < 1000
+        ? `${distanceInMeters} meters`
         : `${(distanceInMeters / 1000).toFixed(1)} km`;
 
       if (distance > GEOFENCE_RADIUS_METERS) {
@@ -563,10 +564,11 @@ export default function AttendanceScreen() {
           `You are approximately ${distanceText} away from ${shiftInfo.stationName}. Do you want to force mark attendance?`,
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Force Mark', onPress: async () => {
+            {
+              text: 'Force Mark', onPress: async () => {
                 try {
                   setCheckingOut(true);
-                   // Call check-out API using attendance.id and shiftInfo.id for force mark
+                  // Call check-out API using attendance.id and shiftInfo.id for force mark
                   await attendanceApi.checkOutAttendance({
                     attendance_id: attendance.id, // Use attendance ID
                     user_shift_assignment_id: shiftInfo.id, // Use ID from shiftInfo
@@ -578,7 +580,7 @@ export default function AttendanceScreen() {
                 } catch (forceMarkErr: any) {
                   Alert.alert('Force Mark Failed', forceMarkErr.message || 'Unable to force mark check out.');
                 } finally {
-                   setCheckingOut(false);
+                  setCheckingOut(false);
                 }
               }
             }
@@ -628,7 +630,7 @@ export default function AttendanceScreen() {
     try {
       setCheckingIn(true);
       const coords = await getLocation();
-      
+
       // Create dummy attendance record with captured data
       const dummyAttendance: Attendance = {
         id: 0, // Use a dummy number ID
@@ -648,7 +650,7 @@ export default function AttendanceScreen() {
       // Update local state to show dummy check-in
       setAttendance(dummyAttendance);
       Alert.alert('Dummy Check In Successful', 'Attendance state updated locally.');
-      
+
       // Note: This does NOT call the API
 
     } catch (err: any) {
@@ -665,7 +667,7 @@ export default function AttendanceScreen() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+    return date.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric'
@@ -692,7 +694,7 @@ export default function AttendanceScreen() {
 
   // Add function to check if user has assigned shifts
   const hasAssignedShifts = () => {
-    return assignedShifts.some(shift => 
+    return assignedShifts.some(shift =>
       shift.user_id === 6 && // Using known user ID
       new Date(shift.assigned_date).toISOString().split('T')[0] === new Date().toISOString().split('T')[0]
     );
@@ -729,13 +731,13 @@ export default function AttendanceScreen() {
                     {selectedShift.start_time.slice(0, 5)} - {selectedShift.end_time.slice(0, 5)}
                   </Text>
                 </View>
-                <ArrowRight 
-                  size={20} 
-                  color={theme.secondaryText} 
+                <ArrowRight
+                  size={20}
+                  color={theme.secondaryText}
                   style={[
                     styles.dropdownArrow,
                     showShiftDropdown && styles.dropdownArrowOpen
-                  ]} 
+                  ]}
                 />
               </View>
             </TouchableOpacity>
@@ -794,13 +796,13 @@ export default function AttendanceScreen() {
                     </Text>
                   )}
                 </View>
-                <ArrowRight 
-                  size={20} 
-                  color={theme.secondaryText} 
+                <ArrowRight
+                  size={20}
+                  color={theme.secondaryText}
                   style={[
                     styles.dropdownArrow,
                     showStationDropdown && styles.dropdownArrowOpen
-                  ]} 
+                  ]}
                 />
               </View>
             </TouchableOpacity>
@@ -870,13 +872,13 @@ export default function AttendanceScreen() {
                     </Text>
                   )}
                 </View>
-                <ArrowRight 
-                  size={20} 
-                  color={theme.secondaryText} 
+                <ArrowRight
+                  size={20}
+                  color={theme.secondaryText}
                   style={[
                     styles.dropdownArrow,
                     showGateDropdown && styles.dropdownArrowOpen
-                  ]} 
+                  ]}
                 />
               </View>
             </TouchableOpacity>
@@ -1019,7 +1021,7 @@ export default function AttendanceScreen() {
         }
       >
         {!attendance && !attendanceHistory.length && !shiftInfo ? (
-           <Card variant="elevated" style={cardStyle(styles.emptyStateCard)}>
+          <Card variant="elevated" style={cardStyle(styles.emptyStateCard)}>
             <View style={styles.emptyStateContainer}>
               <AlertCircle size={48} color={theme.secondaryText} />
               <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Attendance Records</Text>
@@ -1031,8 +1033,8 @@ export default function AttendanceScreen() {
                 <Text style={[styles.emptyStateListItem, { color: theme.secondaryText }]}>• Your attendance records have been cleared</Text>
                 <Text style={[styles.emptyStateListItem, { color: theme.secondaryText }]}>• The system is being updated</Text>
               </View>
-              <TouchableOpacity 
-                style={styles.retryButton} 
+              <TouchableOpacity
+                style={styles.retryButton}
                 onPress={fetchAttendance}
               >
                 <Text style={styles.retryButtonText}>Refresh</Text>
@@ -1048,14 +1050,14 @@ export default function AttendanceScreen() {
                   Today, {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </Text>
               </View>
-              
+
               <View style={styles.shiftInfo}>
                 <Clock size={16} color={theme.secondaryText} />
                 <Text style={[styles.shiftText, { color: theme.secondaryText }]}>
                   {shiftInfo ? `${shiftInfo.name} (${shiftInfo.startTime} - ${shiftInfo.endTime})` : '--:--'}
                 </Text>
               </View>
-              
+
               {/* Add display for Station and Gate names */}
               {shiftInfo?.stationName && (
                 <View style={styles.shiftInfoDetail}>
@@ -1074,7 +1076,7 @@ export default function AttendanceScreen() {
                   </Text>
                 </View>
               )}
-              
+
               {attendance && (
                 <View style={styles.checkInOutContainer}>
                   <View style={styles.timeContainer}>
@@ -1091,9 +1093,9 @@ export default function AttendanceScreen() {
                       </View>
                     )}
                   </View>
-                  
+
                   <ArrowRight size={20} color={theme.secondaryText} />
-                  
+
                   <View style={styles.timeContainer}>
                     <Text style={[styles.timeLabel, { color: theme.secondaryText }]}>Check Out</Text>
                     <Text style={[styles.timeValue, { color: theme.text }]}>
@@ -1118,14 +1120,14 @@ export default function AttendanceScreen() {
                     <Text style={[styles.statusText, { color: theme.secondaryText }]}>You haven't checked in yet</Text>
                   </View>
                 )}
-                
+
                 {attendance && !attendance.check_out_time && (
                   <View style={styles.statusInfo}>
                     <CheckCircle2 size={18} color={COLORS.success.light} />
                     <Text style={[styles.statusText, { color: theme.text }]}>You're currently checked in</Text>
                   </View>
                 )}
-                
+
                 {attendance && attendance.check_out_time && (
                   <View style={styles.statusInfo}>
                     <CheckCircle2 size={18} color={COLORS.success.light} />
@@ -1133,7 +1135,7 @@ export default function AttendanceScreen() {
                   </View>
                 )}
               </View>
-              
+
               <View style={styles.actionButtons}>
                 {/* Show Check In button if shift is present and not checked in */}
                 {shiftInfo && !attendance && (
@@ -1146,7 +1148,7 @@ export default function AttendanceScreen() {
                     disabled={checkingIn}
                   />
                 )}
-                
+
                 {/* Show Check Out button if checked in and not checked out */}
                 {attendance && !attendance.check_out_time && (
                   <Button
@@ -1160,7 +1162,7 @@ export default function AttendanceScreen() {
                 )}
               </View>
             </Card>
-            
+
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance History</Text>
             </View>
@@ -1171,15 +1173,15 @@ export default function AttendanceScreen() {
             ) : (
               attendanceHistory.map((record, index) => {
                 // Find the assigned shift for this attendance record using user_shift_assignment_id
-                const assignedShiftForHistory = assignedShifts.find(shift => 
+                const assignedShiftForHistory = assignedShifts.find(shift =>
                   shift.id === record.user_shift_assignment_id
                 );
-                
+
                 // Find station and gate names using IDs from the assigned shift or the nested object if available
                 const historyStationName = assignedShiftForHistory?.station_id
                   ? stations.find(s => s.id === assignedShiftForHistory.station_id)?.name
                   : record.user_shift_assignment?.station?.name || 'Unknown';
-                  
+
                 const historyGateName = assignedShiftForHistory?.gate_id
                   ? gates.find(g => g.id === assignedShiftForHistory.gate_id)?.name
                   : record.user_shift_assignment?.gate?.name || 'Unknown';
@@ -1188,8 +1190,8 @@ export default function AttendanceScreen() {
                   <Card key={index} variant="outlined" style={cardStyle(styles.historyCard)}>
                     <View style={styles.historyHeader}>
                       <Text style={[styles.historyDate, { color: theme.text }]}>{formatDate(record.date)}</Text>
-                      <StatusBadge 
-                        label={record.status} 
+                      <StatusBadge
+                        label={record.status}
                         type={getStatusColor(record.status)}
                         size="sm"
                       />
@@ -1221,7 +1223,8 @@ export default function AttendanceScreen() {
         )}
 
         {!shiftInfo && !attendance && (
-          <Card style={styles.emptyStateCard}>
+          <Card variant="elevated" style={cardStyle(styles.emptyStateCard)}>
+
             <Text style={[styles.emptyStateText, { color: theme.text }]}>
               No shift assigned for today
             </Text>
@@ -1402,6 +1405,8 @@ const styles = StyleSheet.create({
   },
   emptyStateCard: {
     padding: SPACING.lg,
+    marginTop: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
   },
   emptyStateContainer: {
     alignItems: 'center',
