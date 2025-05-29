@@ -1,18 +1,37 @@
 // User related types
 export enum UserRole {
-  SYSTEM_ADMIN = 'SYSTEM_ADMIN',
-  ORG_ADMIN = 'ORG_ADMIN',
-  MANAGER = 'MANAGER',
-  TEAM_LEAD = 'TEAM_LEAD',
-  RESOURCE_MANAGER = 'RESOURCE_MANAGER', // RM / Field Agent
+  ADMIN = 'Admin',
+  CEO = 'CEO',
+  MANAGER = 'Manager',
+  TEAM_LEAD = 'Team Lead',
+  PUBLIC_RELATIONS = 'Public Relations',
+}
+
+export enum UserRoleId {
+  ADMIN = 2,
+  CEO = 3,
+  MANAGER = 4,
+  TEAM_LEAD = 5,
+  PUBLIC_RELATIONS = 7,
 }
 
 export interface User {
-  id: string;
+  id: number;
   name: string;
   email: string;
   phone: string;
   role: UserRole;
+  role_id: UserRoleId;
+  organization_id: number;
+  address: string;
+  city_id: number;
+  state_id: number;
+  country_id: number;
+  postal_code: string | null;
+  department_id: number;
+  status: 'Active' | 'Inactive';
+  is_admin: number;
+  email_verified_at: string | null;
   avatar?: string;
   isActive: boolean;
   teamId?: string;

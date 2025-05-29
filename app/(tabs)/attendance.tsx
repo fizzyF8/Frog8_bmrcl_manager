@@ -14,6 +14,7 @@ import { attendanceApi, Attendance, ShiftAttendanceResponse, Station, Gate, Assi
 import { useTheme } from '@/context/theme';
 import { useAuth } from '@/context/auth';
 import { getTimeElapsedString } from '@/utils/time';
+import { useRoleAccess } from '@/hooks/useRoleAccess';
 
 // Mock data
 const today = new Date();
@@ -169,6 +170,7 @@ const formatTime = (dateString: string | null) => {
 export default function AttendanceScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { canManageShifts } = useRoleAccess();
   const [attendance, setAttendance] = useState<Attendance | null>(null);
   const [attendanceHistory, setAttendanceHistory] = useState<Attendance[]>([]);
   const [shiftInfo, setShiftInfo] = useState<DisplayShiftInfo | null>(null);
@@ -1219,6 +1221,17 @@ export default function AttendanceScreen() {
                 );
               })
             )}
+
+            {canManageShifts && (
+              <Card style={cardStyle(styles.card)}>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>Shift Management</Text>
+                <Button
+                  title="Assign Shift"
+                  onPress={() => setShowAssignModal(true)}
+                  style={styles.selfAssignButton}
+                />
+              </Card>
+            )}
           </>
         )}
 
@@ -1676,5 +1689,38 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     fontSize: FONT_SIZES.sm,
     marginBottom: SPACING.xs / 2,
+  },
+  card: {
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  cardTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: FONT_SIZES.lg,
+    marginBottom: SPACING.sm,
+  },
+  attendanceInfo: {
+    marginBottom: SPACING.md,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  infoLabel: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZES.sm,
+  },
+  infoValue: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+  },
+  checkOutButton: {
+    marginTop: SPACING.md,
+  },
+  assignButton: {
+    marginTop: SPACING.md,
   },
 });
