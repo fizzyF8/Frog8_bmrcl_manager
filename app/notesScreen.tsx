@@ -38,6 +38,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
     ...SHADOWS.sm,
+    zIndex: 2,
   },
   headerLeft: {
     flexDirection: 'row',

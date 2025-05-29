@@ -179,6 +179,23 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* FAQ Card */}
+        <TouchableOpacity 
+          style={[styles.quickNotesCard, { backgroundColor: theme.card, borderColor: COLORS.primary.light + '60' }]} 
+          onPress={() => router.push('/faqScreen')}
+        >
+          <View style={styles.quickNotesContent}>
+            <View style={[styles.quickNotesIconContainer, { backgroundColor: COLORS.primary.light + '20' }]}>
+              <HelpCircle size={24} color={COLORS.primary.light} />
+            </View>
+            <View style={styles.quickNotesTextContainer}>
+              <Text style={[styles.quickNotesTitle, { color: theme.text }]}>FAQ</Text>
+              <Text style={[styles.quickNotesDescription, { color: theme.secondaryText }]}>Frequently asked questions</Text>
+            </View>
+            <ChevronRight size={24} color={theme.secondaryText} />
+          </View>
+        </TouchableOpacity>
+
         <Card style={{ ...styles.card, backgroundColor: theme.card }}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>Settings</Text>
           <View style={styles.settingItem}>
