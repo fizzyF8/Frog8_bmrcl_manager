@@ -126,7 +126,11 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         device_id: deviceId,
       };
 
+      console.log('Task data being sent:', taskData);
+
       const response = await taskApi.createTask(taskData);
+      console.log('Create task API response:', response);
+
       if (response.status === 'true') {
         onTaskCreated();
         onClose();
@@ -202,7 +206,6 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                   <Picker.Item label="Low" value="Low" />
                   <Picker.Item label="Medium" value="Medium" />
                   <Picker.Item label="High" value="High" />
-                  <Picker.Item label="Critical" value="Critical" />
                 </Picker>
               </View>
             </View>
