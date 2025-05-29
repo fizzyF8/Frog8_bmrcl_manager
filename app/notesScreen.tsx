@@ -4,13 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS, SHADOWS } from '@/constants/theme';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { PlusCircle, Pencil, Trash2, X, Clock, Search, Filter } from 'lucide-react-native';
+import { PlusCircle, Pencil, Trash2, X, Clock, Search, Filter, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/context/theme';
 import { useAuth } from '@/context/auth';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
+import { useRouter } from 'expo-router';
 
 interface Note {
   id: number;
@@ -37,6 +38,13 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
     ...SHADOWS.sm,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: SPACING.sm,
   },
   title: {
     fontFamily: FONTS.bold,
@@ -180,7 +188,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     gap: SPACING.sm,
     position: 'absolute',
-    top: 56,
+    top: 110,
     left: 0,
     right: 0,
     zIndex: 1,
@@ -231,6 +239,7 @@ function NotesScreen() {
   const searchBarHeight = useRef(new Animated.Value(1)).current;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSearchFocused = useRef(false);
+  const router = useRouter();
 
   const startHideTimer = () => {
     if (hideTimer.current) {
@@ -541,7 +550,12 @@ function NotesScreen() {
   return (
     <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Notes</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={24} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.text }]}>Notes</Text>
+        </View>
         {lastRefreshTime && (
           <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastRefreshTime)} />
         )}
@@ -576,7 +590,7 @@ function NotesScreen() {
             onBlur={handleSearchBlur}
           />
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.filterButton, { backgroundColor: theme.card, borderColor: theme.border }]}
           onPress={() => {
             handleSearchFocus();

@@ -161,6 +161,24 @@ export default function ProfileScreen() {
           </View>
         </Card>
 
+        {/* Quick Notes Card */}
+        <TouchableOpacity 
+          style={[styles.quickNotesCard, { backgroundColor: theme.card, borderColor: COLORS.primary.light + '60' }]} 
+          onPress={() => router.push('/notesScreen')}
+        >
+          <View style={styles.quickNotesContent}>
+            <View style={[styles.quickNotesIconContainer, { backgroundColor: COLORS.primary.light + '20' }]}>
+              <FileText size={24} color={COLORS.primary.light} />
+            </View>
+            <View style={styles.quickNotesTextContainer}>
+              <Text style={[styles.quickNotesTitle, { color: theme.text }]}>Quick Notes</Text>
+              <Text style={[styles.quickNotesDescription, { color: theme.secondaryText }]}>Access your notes and create
+                new ones</Text>
+            </View>
+            <ChevronRight size={24} color={theme.secondaryText} />
+          </View>
+        </TouchableOpacity>
+
         <Card style={{ ...styles.card, backgroundColor: theme.card }}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>Settings</Text>
           <View style={styles.settingItem}>
@@ -355,5 +373,36 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginRight: SPACING.sm,
+  },
+  quickNotesCard: {
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    borderWidth: 2,
+    borderColor: COLORS.primary.light + '60',
+    borderRadius: BORDER_RADIUS.md,
+  },
+  quickNotesContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quickNotesIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quickNotesTextContainer: {
+    flex: 1,
+    marginHorizontal: SPACING.md,
+  },
+  quickNotesTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontFamily: FONTS.bold,
+    marginBottom: SPACING.xs,
+  },
+  quickNotesDescription: {
+    fontSize: FONT_SIZES.md,
+    fontFamily: FONTS.regular,
   },
 }); 
