@@ -270,11 +270,25 @@ export interface UsersResponse {
   user: User[];
 }
 
+export interface ResetPasswordResponse {
+  status: string;
+  message: string;
+}
+
 export const authApi = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
     const response = await api.post<LoginResponse>('/login', {
       email,
       password,
+    });
+    return response.data;
+  },
+
+  resetPassword: async (email: string, newPassword: string, newPasswordConfirmation: string): Promise<ResetPasswordResponse> => {
+    const response = await api.post<ResetPasswordResponse>('/reset_password', {
+      email,
+      new_password: newPassword,
+      new_password_confirmation: newPasswordConfirmation,
     });
     return response.data;
   },
