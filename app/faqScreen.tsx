@@ -1,86 +1,200 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
+import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS, SHADOWS } from '@/constants/theme';
 import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useTheme } from '@/context/theme';
 import { useRouter } from 'expo-router';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import SyncStatus from '@/components/ui/SyncStatus';
+import { getTimeElapsedString } from '@/utils/time';
 
 interface FAQItem {
+  id: number;
   question: string;
   answer: string;
+  description?: string;
+  remark?: string;
+  category?: string;
+  priority?: string;
+  status?: string;
+  added_by?: number;
 }
 
-const faqItems: FAQItem[] = [
-  {
-    question: "What is BMRCL Manager?",
-    answer: "BMRCL Manager is a comprehensive management application designed to help users manage tasks, notes, and other work-related activities efficiently."
-  },
-  {
-    question: "How do I sync my data?",
-    answer: "Your data is automatically synced when you're online. You can also manually sync by pulling down to refresh on most screens."
-  },
-  {
-    question: "How do I create a new task?",
-    answer: "You can create a new task by navigating to the Tasks screen and tapping the '+' button in the top right corner."
-  },
-  {
-    question: "Can I use the app offline?",
-    answer: "Yes, the app works offline. Your changes will be synced automatically when you're back online."
-  },
-  {
-    question: "How do I change my profile information?",
-    answer: "You can update your profile information by going to the Profile screen and tapping on the relevant fields."
-  }
-];
+interface FAQResponse {
+  status: string;
+  message: string;
+  faq: FAQItem[];
+}
 
 export default function FAQScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const [expandedItems, setExpandedItems] = React.useState<number[]>([]);
+  const [faqItems, setFaqItems] = React.useState<FAQItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [syncState, setSyncState] = useState<'syncing' | 'synced' | 'error' | 'offline'>('synced');
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchFAQs = async () => {
+    try {
+      if (!refreshing) {
+        setLoading(true);
+      }
+      setError(null);
+      setSyncState('syncing');
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        setError('Authentication required');
+        setLoading(false);
+        setRefreshing(false);
+        setSyncState('error');
+        return;
+      }
+
+      const response = await axios.get<FAQResponse>('https://demo.ctrmv.com/veriphy/public/api/v1/faqs/list', {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.status === 'true' && Array.isArray(response.data.faq)) {
+        setFaqItems(response.data.faq);
+        setSyncState('synced');
+        setLastRefreshTime(new Date());
+      } else {
+        console.log('Invalid response structure:', {
+          status: response.data.status,
+          hasFaq: !!response.data.faq,
+          isArray: Array.isArray(response.data.faq)
+        });
+        setError('Invalid FAQ data received');
+        setSyncState('error');
+      }
+    } catch (err) {
+      console.error('Error fetching FAQs:', err);
+      if (axios.isAxiosError(err)) {
+        setError(`Failed to fetch FAQs: ${err.response?.data?.message || err.message}`);
+      } else {
+        setError('Failed to fetch FAQs. Please try again later.');
+      }
+      setSyncState('error');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchFAQs();
+  }, []);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchFAQs();
+  }, []);
 
   const toggleItem = (index: number) => {
     setExpandedItems(prev => 
       prev.includes(index) 
-        ? prev.filter(i => i !== index)
+        ? prev.filter(i => i !== index) 
         : [...prev, index]
     );
   };
 
+  const renderContent = () => {
+    if (loading && !refreshing) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.primary} />
+        </View>
+      );
+    }
+
+    if (error && !refreshing) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: theme.primary }]}
+            onPress={fetchFAQs}
+          >
+            <Text style={[styles.retryText, { color: theme.card }]}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (!faqItems.length && !loading) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorText, { color: theme.secondaryText }]}>No FAQs available</Text>
+        </View>
+      );
+    }
+
+    return faqItems.map((item, index) => (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.faqItem, { backgroundColor: theme.card }, SHADOWS.sm]}
+        onPress={() => toggleItem(index)}
+      >
+        <View style={styles.questionContainer}>
+          <Text style={[styles.question, { color: theme.text }]}>{item.question}</Text>
+          {expandedItems.includes(index) ? (
+            <ChevronUp size={24} color={theme.secondaryText} />
+          ) : (
+            <ChevronDown size={24} color={theme.secondaryText} />
+          )}
+        </View>
+        {expandedItems.includes(index) && (
+          <View>
+            <Text style={[styles.answer, { color: theme.secondaryText }]}>{item.answer}</Text>
+            {item.description && (
+              <Text style={[styles.description, { color: theme.secondaryText }]}>
+                {item.description}
+              </Text>
+            )}
+            {item.remark && (
+              <Text style={[styles.remark, { color: theme.error }]}>
+                Note: {item.remark}
+              </Text>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
+    ));
+  };
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.background }}>
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }, SHADOWS.sm]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <ArrowLeft size={24} color={theme.text} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: theme.text }]}>FAQ</Text>
         </View>
+        <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastRefreshTime || new Date())} />
       </View>
 
       <ScrollView 
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary.light]}
+            tintColor={COLORS.primary.light}
+          />
+        }
       >
-        {faqItems.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[styles.faqItem, { backgroundColor: theme.card }]}
-            onPress={() => toggleItem(index)}
-          >
-            <View style={styles.questionContainer}>
-              <Text style={[styles.question, { color: theme.text }]}>{item.question}</Text>
-              {expandedItems.includes(index) ? (
-                <ChevronUp size={24} color={theme.secondaryText} />
-              ) : (
-                <ChevronDown size={24} color={theme.secondaryText} />
-              )}
-            </View>
-            {expandedItems.includes(index) && (
-              <Text style={[styles.answer, { color: theme.secondaryText }]}>{item.answer}</Text>
-            )}
-          </TouchableOpacity>
-        ))}
+        {renderContent()}
       </ScrollView>
     </SafeAreaView>
   );
@@ -134,5 +248,45 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     marginTop: SPACING.sm,
     lineHeight: 20,
+  },
+  description: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+    marginTop: SPACING.sm,
+    fontStyle: 'italic',
+    lineHeight: 20,
+  },
+  remark: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+    marginTop: SPACING.sm,
+    lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  errorText: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZES.md,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
+  retryButton: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  retryText: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZES.sm,
   },
 }); 
