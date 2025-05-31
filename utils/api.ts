@@ -156,6 +156,7 @@ export interface CheckInRequest {
   check_in_latitude: string;
   check_in_longitude: string;
   force_mark?: boolean;
+  check_in_image?: string; // Base64 encoded image string
 }
 
 export interface CheckOutRequest {

@@ -234,6 +234,9 @@ export default function AttendanceScreen() {
   const [assignedShifts, setAssignedShifts] = useState<AssignShift[]>([]);
 
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
+  const [capturingSelfie, setCapturingSelfie] = useState(false);
+  const [showSelfiePreview, setShowSelfiePreview] = useState(false);
+  const [tempSelfie, setTempSelfie] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAttendance();
@@ -420,27 +423,48 @@ export default function AttendanceScreen() {
     return location.coords;
   };
 
-  const handleCheckIn = async () => {
+  const captureSelfie = async () => {
+    try {
+      setCapturingSelfie(true);
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera permission is required to take a selfie.');
+        return null;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        setTempSelfie(result.assets[0].base64);
+        setShowSelfiePreview(true);
+        return result.assets[0].base64;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error capturing selfie:', error);
+      Alert.alert('Error', 'Failed to capture selfie. Please try again.');
+      return null;
+    } finally {
+      setCapturingSelfie(false);
+    }
+  };
+
+  const handleSelfieConfirm = async () => {
+    if (!tempSelfie || !shiftInfo) return;
+
     try {
       setCheckingIn(true);
-      
-      // Get location with lower accuracy for faster response
       const location = await Location.getCurrentPositionAsync({ 
-        accuracy: Location.Accuracy.Balanced // Changed from High to Balanced for faster response
+        accuracy: Location.Accuracy.Balanced
       });
       const coords = location.coords;
-
-      // Validate location
-      if (!validateLocation(coords.latitude, coords.longitude)) {
-        Alert.alert('Invalid Location', 'Unable to get your current location. Please try again.');
-        return;
-      }
-
-      // Ensure shiftInfo is available
-      if (!shiftInfo || shiftInfo.id === undefined) {
-        Alert.alert('Error', 'No active shift information found. Please refresh or contact support.');
-        return;
-      }
 
       // Check if station information is available for geofence check
       if (!shiftInfo.stationName || shiftInfo.station_id === undefined) {
@@ -449,8 +473,11 @@ export default function AttendanceScreen() {
           user_shift_assignment_id: shiftInfo.id,
           check_in_latitude: coords.latitude.toString(),
           check_in_longitude: coords.longitude.toString(),
+          check_in_image: tempSelfie
         });
         Alert.alert('Success', 'Checked in successfully!');
+        setShowSelfiePreview(false);
+        setTempSelfie(null);
         fetchAttendance();
         return;
       }
@@ -463,17 +490,19 @@ export default function AttendanceScreen() {
           user_shift_assignment_id: shiftInfo.id,
           check_in_latitude: coords.latitude.toString(),
           check_in_longitude: coords.longitude.toString(),
+          check_in_image: tempSelfie
         });
         Alert.alert('Success', 'Checked in successfully!');
+        setShowSelfiePreview(false);
+        setTempSelfie(null);
         fetchAttendance();
         return;
       }
 
-      // Calculate distance using a simpler formula for faster computation
       const distance = Math.sqrt(
         Math.pow(coords.latitude - stationCoords.latitude, 2) +
         Math.pow(coords.longitude - stationCoords.longitude, 2)
-      ) * 111000; // Rough conversion to meters (1 degree ≈ 111km)
+      ) * 111000;
 
       const distanceInMeters = Math.round(distance);
       const distanceText = distanceInMeters < 1000
@@ -494,9 +523,12 @@ export default function AttendanceScreen() {
                     user_shift_assignment_id: shiftInfo.id,
                     check_in_latitude: coords.latitude.toString(),
                     check_in_longitude: coords.longitude.toString(),
-                    force_mark: true
+                    force_mark: true,
+                    check_in_image: tempSelfie
                   });
                   Alert.alert('Success', 'Shift force marked and checked in!');
+                  setShowSelfiePreview(false);
+                  setTempSelfie(null);
                   fetchAttendance();
                 } catch (forceMarkErr: any) {
                   Alert.alert('Force Mark Failed', forceMarkErr.message || 'Unable to force mark check in.');
@@ -510,11 +542,50 @@ export default function AttendanceScreen() {
           user_shift_assignment_id: shiftInfo.id,
           check_in_latitude: coords.latitude.toString(),
           check_in_longitude: coords.longitude.toString(),
+          check_in_image: tempSelfie
         });
         Alert.alert('Success', 'Checked in successfully!');
+        setShowSelfiePreview(false);
+        setTempSelfie(null);
         fetchAttendance();
       }
+    } catch (err: any) {
+      Alert.alert('Check In Failed', err.message || 'Unable to check in.');
+    } finally {
+      setCheckingIn(false);
+    }
+  };
 
+  const handleCheckIn = async () => {
+    try {
+      setCheckingIn(true);
+      
+      // Get location with lower accuracy for faster response
+      const location = await Location.getCurrentPositionAsync({ 
+        accuracy: Location.Accuracy.Balanced
+      });
+      const coords = location.coords;
+
+      // Validate location
+      if (!validateLocation(coords.latitude, coords.longitude)) {
+        Alert.alert('Invalid Location', 'Unable to get your current location. Please try again.');
+        return;
+      }
+
+      // Ensure shiftInfo is available
+      if (!shiftInfo || shiftInfo.id === undefined) {
+        Alert.alert('Error', 'No active shift information found. Please refresh or contact support.');
+        return;
+      }
+
+      // Capture selfie
+      const selfieBase64 = await captureSelfie();
+      if (!selfieBase64) {
+        Alert.alert('Selfie Required', 'A selfie is required for check-in. Please try again.');
+        return;
+      }
+
+      // The rest of the check-in logic will be handled after selfie confirmation
     } catch (err: any) {
       Alert.alert('Check In Failed', err.message || 'Unable to check in.');
     } finally {
@@ -948,6 +1019,53 @@ export default function AttendanceScreen() {
     </Modal>
   );
 
+  const renderSelfiePreview = () => (
+    <Modal
+      visible={showSelfiePreview}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => {
+        setShowSelfiePreview(false);
+        setTempSelfie(null);
+      }}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>Selfie Preview</Text>
+          
+          {tempSelfie && (
+            <View style={styles.selfiePreviewContainer}>
+              <Image
+                source={{ uri: `data:image/jpeg;base64,${tempSelfie}` }}
+                style={styles.selfiePreview}
+                resizeMode="contain"
+              />
+            </View>
+          )}
+
+          <View style={styles.modalButtons}>
+            <Button
+              title="Retake"
+              onPress={async () => {
+                setShowSelfiePreview(false);
+                setTempSelfie(null);
+                await captureSelfie();
+              }}
+              variant="outlined"
+              style={styles.modalButton}
+            />
+            <Button
+              title="Confirm & Check In"
+              onPress={handleSelfieConfirm}
+              disabled={checkingIn}
+              style={styles.modalButton}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   if (loading) {
     return (
       <ErrorBoundary>
@@ -1238,6 +1356,7 @@ export default function AttendanceScreen() {
 
         </ScrollView>
         {renderAssignModal()}
+        {renderSelfiePreview()}
       </SafeAreaView>
     </ErrorBoundary>
   );
@@ -1710,5 +1829,17 @@ const styles = StyleSheet.create({
   },
   assignButton: {
     marginTop: SPACING.md,
+  },
+  selfiePreviewContainer: {
+    width: '100%',
+    height: 300,
+    marginVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+    backgroundColor: COLORS.primary.light,
+  },
+  selfiePreview: {
+    width: '100%',
+    height: '100%',
   },
 });
