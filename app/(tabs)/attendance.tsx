@@ -184,6 +184,11 @@ export default function AttendanceScreen() {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  // New state for selfie preview for checkout
+  const [showCheckoutSelfiePreview, setShowCheckoutSelfiePreview] = useState(false);
+  const [tempCheckoutSelfie, setTempCheckoutSelfie] = useState<string | null>(null);
+  const [capturingCheckoutSelfie, setCapturingCheckoutSelfie] = useState(false);
+
   // New state for self-assignment
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [stations, setStations] = useState<Station[]>([]);
@@ -446,13 +451,14 @@ export default function AttendanceScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.7,
-        base64: true,
+        base64: false, // Don't get base64
+        cameraType: ImagePicker.CameraType.front
       });
 
-      if (!result.canceled && result.assets[0].base64) {
-        setTempSelfie(result.assets[0].base64);
+      if (!result.canceled && result.assets[0].uri) {
+        setTempSelfie(result.assets[0].uri);
         setShowSelfiePreview(true);
-        return result.assets[0].base64;
+        return result.assets[0].uri;
       }
       return null;
     } catch (error) {
@@ -469,20 +475,38 @@ export default function AttendanceScreen() {
 
     try {
       setCheckingIn(true);
+      
+      // First get location
       const location = await Location.getCurrentPositionAsync({ 
         accuracy: Location.Accuracy.Balanced
       });
       const coords = location.coords;
 
+      // Create form data for file upload
+      const formData = new FormData();
+      formData.append('user_shift_assignment_id', shiftInfo.id.toString());
+      formData.append('check_in_latitude', coords.latitude.toString());
+      formData.append('check_in_longitude', coords.longitude.toString());
+      formData.append('check_in_force_mark', '1');
+      
+      // Append the image file
+      const imageUri = tempSelfie;
+      const filename = imageUri.split('/').pop() || 'photo.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      
+      formData.append('check_in_image', {
+        uri: imageUri,
+        name: filename,
+        type: type
+      } as any);
+
+      console.log('Check-in Form Data:', formData);
+
       // Check if station information is available for geofence check
       if (!shiftInfo.stationName || shiftInfo.station_id === undefined) {
         console.warn('Station information missing for geofence check. Proceeding with check-in.');
-        await attendanceApi.checkInAttendance({
-          user_shift_assignment_id: shiftInfo.id,
-          check_in_latitude: coords.latitude.toString(),
-          check_in_longitude: coords.longitude.toString(),
-          check_in_image: tempSelfie
-        });
+        await attendanceApi.checkInAttendance(formData as FormData);
         Alert.alert('Success', 'Checked in successfully!');
         setShowSelfiePreview(false);
         setTempSelfie(null);
@@ -494,12 +518,7 @@ export default function AttendanceScreen() {
 
       if (!stationCoords) {
         console.warn(`Coordinates not defined for station ID ${shiftInfo.station_id}. Proceeding with check-in.`);
-        await attendanceApi.checkInAttendance({
-          user_shift_assignment_id: shiftInfo.id,
-          check_in_latitude: coords.latitude.toString(),
-          check_in_longitude: coords.longitude.toString(),
-          check_in_image: tempSelfie
-        });
+        await attendanceApi.checkInAttendance(formData as FormData);
         Alert.alert('Success', 'Checked in successfully!');
         setShowSelfiePreview(false);
         setTempSelfie(null);
@@ -527,18 +546,15 @@ export default function AttendanceScreen() {
               text: 'Force Mark',
               onPress: async () => {
                 try {
-                  await attendanceApi.checkInAttendance({
-                    user_shift_assignment_id: shiftInfo.id,
-                    check_in_latitude: coords.latitude.toString(),
-                    check_in_longitude: coords.longitude.toString(),
-                    force_mark: true,
-                    check_in_image: tempSelfie
-                  });
+                  console.log('Force Mark Check-in Form Data:', formData);
+                  await attendanceApi.checkInAttendance(formData as FormData);
                   Alert.alert('Success', 'Shift force marked and checked in!');
                   setShowSelfiePreview(false);
                   setTempSelfie(null);
                   fetchAttendance();
                 } catch (forceMarkErr: any) {
+                  console.error('Force Mark Error:', forceMarkErr);
+                  console.error('Error Response:', forceMarkErr.response?.data);
                   Alert.alert('Force Mark Failed', forceMarkErr.message || 'Unable to force mark check in.');
                 }
               }
@@ -546,18 +562,15 @@ export default function AttendanceScreen() {
           ]
         );
       } else {
-        await attendanceApi.checkInAttendance({
-          user_shift_assignment_id: shiftInfo.id,
-          check_in_latitude: coords.latitude.toString(),
-          check_in_longitude: coords.longitude.toString(),
-          check_in_image: tempSelfie
-        });
+        await attendanceApi.checkInAttendance(formData as FormData);
         Alert.alert('Success', 'Checked in successfully!');
         setShowSelfiePreview(false);
         setTempSelfie(null);
         fetchAttendance();
       }
     } catch (err: any) {
+      console.error('Check In Error:', err);
+      console.error('Error Response:', err.response?.data);
       Alert.alert('Check In Failed', err.message || 'Unable to check in.');
     } finally {
       setCheckingIn(false);
@@ -601,67 +614,142 @@ export default function AttendanceScreen() {
     }
   };
 
-  const handleCheckOut = async () => {
+  const captureCheckoutSelfie = async () => {
+    try {
+      setCapturingCheckoutSelfie(true);
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera permission is required to take a selfie.');
+        return null;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+        base64: false, // Don't get base64
+        cameraType: ImagePicker.CameraType.front
+      });
+
+      if (!result.canceled && result.assets[0].uri) {
+        setTempCheckoutSelfie(result.assets[0].uri);
+        setShowCheckoutSelfiePreview(true);
+        return result.assets[0].uri;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error capturing checkout selfie:', error);
+      Alert.alert('Error', 'Failed to capture selfie. Please try again.');
+      return null;
+    } finally {
+      setCapturingCheckoutSelfie(false);
+    }
+  };
+
+  const handleCheckoutSelfieConfirm = async () => {
+    if (!tempCheckoutSelfie || !attendance || !shiftInfo) return;
+
     try {
       setCheckingOut(true);
-      const coords = await getLocation();
+      
+      // First get location
+      const location = await Location.getCurrentPositionAsync({ 
+        accuracy: Location.Accuracy.Balanced
+      });
+      const coords = location.coords;
 
-      // Validate location
-      if (!validateLocation(coords.latitude, coords.longitude)) {
-        Alert.alert('Invalid Location', 'Unable to get your current location. Please try again.');
+      // Create form data for file upload
+      const formData = new FormData();
+      formData.append('attendance_id', attendance.id.toString());
+      formData.append('user_shift_assignment_id', shiftInfo.id.toString());
+      formData.append('check_out_latitude', coords.latitude.toString());
+      formData.append('check_out_longitude', coords.longitude.toString());
+      formData.append('check_out_force_mark', '1');
+      
+      // Append the image file
+      const imageUri = tempCheckoutSelfie;
+      const filename = imageUri.split('/').pop() || 'photo.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      
+      formData.append('check_out_image', {
+        uri: imageUri,
+        name: filename,
+        type: type
+      } as any);
+
+      console.log('Check-out Form Data:', formData);
+
+      // Check if station information is available for geofence check
+      if (!shiftInfo.stationName || shiftInfo.station_id === undefined) {
+        console.warn('Station information missing for geofence check. Proceeding with check-out.');
+        await attendanceApi.checkOutAttendance(formData as FormData);
+        Alert.alert('Success', 'Checked out successfully!');
+        setShowCheckoutSelfiePreview(false);
+        setTempCheckoutSelfie(null);
+        fetchAttendance();
         return;
       }
 
-      // Ensure attendance and shiftInfo are available
-      if (!attendance || !shiftInfo || shiftInfo.id === undefined) {
-        Alert.alert('Error', 'No active attendance record or shift information found. Please refresh or contact support.');
+      const stationCoords = STATION_COORDINATES[shiftInfo.station_id];
+
+      if (!stationCoords) {
+        console.warn(`Coordinates not defined for station ID ${shiftInfo.station_id}. Proceeding with check-out.`);
+        await attendanceApi.checkOutAttendance(formData as FormData);
+        Alert.alert('Success', 'Checked out successfully!');
+        setShowCheckoutSelfiePreview(false);
+        setTempCheckoutSelfie(null);
+        fetchAttendance();
         return;
       }
 
-      // Validate check-out time
-      const currentTime = new Date();
-      const shiftEndTime = new Date(`${currentTime.toISOString().split('T')[0]}T${shiftInfo.endTime}:00`);
+      const distance = Math.sqrt(
+        Math.pow(coords.latitude - stationCoords.latitude, 2) +
+        Math.pow(coords.longitude - stationCoords.longitude, 2)
+      ) * 111000;
 
-      if (currentTime < shiftEndTime) {
+      const distanceInMeters = Math.round(distance);
+      const distanceText = distanceInMeters < 1000
+        ? `${distanceInMeters} meters`
+        : `${(distanceInMeters / 1000).toFixed(1)} km`;
+
+      if (distance > GEOFENCE_RADIUS_METERS) {
         Alert.alert(
-          'Early Check-out',
-          `Your shift ends at ${shiftInfo.endTime}. Do you want to check out early?`,
+          'Outside Station Geofence',
+          `You are approximately ${distanceText} away from ${shiftInfo.stationName}. Do you want to force mark check out?`,
           [
             { text: 'Cancel', style: 'cancel' },
             {
-              text: 'Check Out Early',
+              text: 'Force Mark',
               onPress: async () => {
                 try {
-                  await attendanceApi.checkOutAttendance({
-                    attendance_id: attendance.id,
-                    user_shift_assignment_id: shiftInfo.id,
-                    check_out_latitude: coords.latitude.toString(),
-                    check_out_longitude: coords.longitude.toString(),
-                  });
+                  console.log('Force Mark Check-out Form Data:', formData);
+                  await attendanceApi.checkOutAttendance(formData as FormData);
                   Alert.alert('Success', 'Shift force marked and checked out!');
-                  fetchAttendance(); // Refresh data
+                  setShowCheckoutSelfiePreview(false);
+                  setTempCheckoutSelfie(null);
+                  fetchAttendance();
                 } catch (forceMarkErr: any) {
+                  console.error('Force Mark Error:', forceMarkErr);
+                  console.error('Error Response:', forceMarkErr.response?.data);
                   Alert.alert('Force Mark Failed', forceMarkErr.message || 'Unable to force mark check out.');
-                } finally {
-                  setCheckingOut(false);
                 }
               }
             }
           ]
         );
       } else {
-        // User is within the geofence, proceed with normal check-out using attendance.id and shiftInfo.id
-        await attendanceApi.checkOutAttendance({
-          attendance_id: attendance.id,
-          user_shift_assignment_id: shiftInfo.id,
-          check_out_latitude: coords.latitude.toString(),
-          check_out_longitude: coords.longitude.toString(),
-        });
+        await attendanceApi.checkOutAttendance(formData as FormData);
         Alert.alert('Success', 'Checked out successfully!');
-        fetchAttendance(); // Refresh data
+        setShowCheckoutSelfiePreview(false);
+        setTempCheckoutSelfie(null);
+        fetchAttendance();
       }
-
     } catch (err: any) {
+      console.error('Check Out Error:', err);
+      console.error('Error Response:', err.response?.data);
       Alert.alert('Check Out Failed', err.message || 'Unable to check out.');
     } finally {
       setCheckingOut(false);
@@ -1042,16 +1130,16 @@ export default function AttendanceScreen() {
           <Text style={[styles.modalTitle, { color: theme.text }]}>Selfie Preview</Text>
           
           {tempSelfie && (
-            <View style={styles.selfiePreviewContainer}>
+            <View style={[styles.selfiePreviewContainer, { backgroundColor: theme.background }]}>
               <Image
-                source={{ uri: `data:image/jpeg;base64,${tempSelfie}` }}
+                source={{ uri: tempSelfie }}
                 style={styles.selfiePreview}
                 resizeMode="contain"
               />
             </View>
           )}
 
-          <View style={styles.modalButtons}>
+          <View style={styles.previewButtonsRow}>
             <Button
               title="Retake"
               onPress={async () => {
@@ -1060,15 +1148,88 @@ export default function AttendanceScreen() {
                 await captureSelfie();
               }}
               variant="outlined"
-              style={styles.modalButton}
+              style={styles.previewButton}
             />
             <Button
               title="Confirm & Check In"
               onPress={handleSelfieConfirm}
               disabled={checkingIn}
-              style={styles.modalButton}
+              style={styles.previewButton}
             />
           </View>
+
+          <Button
+            title="Cancel"
+            onPress={() => {
+              setShowSelfiePreview(false);
+              setTempSelfie(null);
+            }}
+            variant="outlined"
+            color="error"
+            fullWidth
+            style={styles.cancelButton}
+          />
+
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderCheckoutSelfiePreview = () => (
+    <Modal
+      visible={showCheckoutSelfiePreview}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => {
+        setShowCheckoutSelfiePreview(false);
+        setTempCheckoutSelfie(null);
+      }}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+          <Text style={[styles.modalTitle, { color: theme.text }]}>Checkout Selfie Preview</Text>
+          
+          {tempCheckoutSelfie && (
+            <View style={[styles.selfiePreviewContainer, { backgroundColor: theme.background }]}>
+              <Image
+                source={{ uri: tempCheckoutSelfie }}
+                style={styles.selfiePreview}
+                resizeMode="contain"
+              />
+            </View>
+          )}
+
+          <View style={styles.previewButtonsRow}>
+            <Button
+              title="Retake"
+              onPress={async () => {
+                setShowCheckoutSelfiePreview(false);
+                setTempCheckoutSelfie(null);
+                await captureCheckoutSelfie();
+              }}
+              variant="outlined"
+              style={styles.previewButton}
+            />
+            <Button
+              title="Confirm & Check Out"
+              onPress={handleCheckoutSelfieConfirm}
+              disabled={checkingOut}
+              style={styles.previewButton}
+            />
+          </View>
+
+          <Button
+            title="Cancel"
+            onPress={() => {
+              setShowCheckoutSelfiePreview(false);
+              setTempCheckoutSelfie(null);
+            }}
+            variant="outlined"
+            color="error"
+            fullWidth
+            style={styles.cancelButton}
+          />
+
         </View>
       </View>
     </Modal>
@@ -1271,7 +1432,7 @@ export default function AttendanceScreen() {
                       color="secondary"
                       fullWidth
                       leftIcon={<Clock size={20} color={COLORS.white} />}
-                      onPress={handleCheckOut}
+                      onPress={captureCheckoutSelfie}
                       disabled={checkingOut}
                     />
                   )}
@@ -1365,6 +1526,7 @@ export default function AttendanceScreen() {
         </ScrollView>
         {renderAssignModal()}
         {renderSelfiePreview()}
+        {renderCheckoutSelfiePreview()}
       </SafeAreaView>
     </ErrorBoundary>
   );
@@ -1844,10 +2006,21 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     overflow: 'hidden',
-    backgroundColor: COLORS.primary.light,
   },
   selfiePreview: {
     width: '100%',
     height: '100%',
+  },
+  previewButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  previewButton: {
+    flex: 1,
+  },
+  cancelButton: {
+    marginTop: 0,
   },
 });

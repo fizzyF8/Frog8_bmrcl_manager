@@ -155,8 +155,8 @@ export interface CheckInRequest {
   user_shift_assignment_id: number;
   check_in_latitude: string;
   check_in_longitude: string;
-  force_mark?: boolean;
-  check_in_image?: string; // Base64 encoded image string
+  check_in_force_mark?: boolean;
+  check_in_image?: string | FormData;
 }
 
 export interface CheckOutRequest {
@@ -164,6 +164,8 @@ export interface CheckOutRequest {
   user_shift_assignment_id: number;
   check_out_latitude: string;
   check_out_longitude: string;
+  check_out_force_mark?: boolean;
+  check_out_image?: string | FormData;
 }
 
 export interface Station {
@@ -358,12 +360,20 @@ export const attendanceApi = {
     );
     return response.data;
   },
-  checkInAttendance: async (data: CheckInRequest) => {
-    const response = await api.post('/assign_shift/attendance/checkin', data);
+  checkInAttendance: async (data: CheckInRequest | FormData) => {
+    const response = await api.post('/assign_shift/attendance/checkin', data, {
+      headers: {
+        'Content-Type': data instanceof FormData ? 'multipart/form-data' : 'application/json',
+      },
+    });
     return response.data;
   },
-  checkOutAttendance: async (data: CheckOutRequest) => {
-    const response = await api.post('/assign_shift/attendance/checkout', data);
+  checkOutAttendance: async (data: CheckOutRequest | FormData) => {
+    const response = await api.post('/assign_shift/attendance/checkout', data, {
+      headers: {
+        'Content-Type': data instanceof FormData ? 'multipart/form-data' : 'application/json',
+      },
+    });
     return response.data;
   },
   assignShift: async (data: AssignShiftRequest): Promise<AssignShiftResponse> => {
