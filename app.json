@@ -9,7 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.faaiz09.boltexponativewind",
+      "buildNumber": "1.0.0"
     },
     "web": {
       "bundler": "metro",
@@ -33,7 +35,11 @@
     "android": {
       "package": "com.faaiz09.boltexponativewind",
       "versionCode": 1,
-      "permissions": []
+      "permissions": [],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
     }
   }
 }
