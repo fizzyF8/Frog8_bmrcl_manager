@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, ViewStyle, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, ViewStyle, Image, Alert, Dimensions, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
@@ -18,24 +18,35 @@ export default function TVMDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncState, setSyncState] = useState<'offline' | 'syncing' | 'synced' | 'error'>('synced');
+  const [showFullScreenImage, setShowFullScreenImage] = useState(false);
+  const [fullScreenImageUrl, setFullScreenImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchTVMDetails();
+    if (id) {
+      console.log('TVM ID from params:', id);
+      fetchTVMDetails();
+    }
   }, [id]);
 
   const fetchTVMDetails = async () => {
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching TVM details for ID:', id);
       const response = await tvmApi.getTVM(Number(id));
-      if (response.status === 'true') {
+      console.log('TVM details response:', response);
+      
+      if (response.status === 'true' && response.device) {
+        console.log('TVM device:', response.device);
+        console.log('Device image URL:', response.device.device_image_url);
+        console.log('Station image URL:', response.device.location_details?.station_image_url);
         setTVM(response.device);
       } else {
         setError(response.message || 'Failed to fetch TVM details');
       }
     } catch (err) {
-      setError('Failed to fetch TVM details. Please try again.');
       console.error('Error fetching TVM details:', err);
+      setError('Failed to fetch TVM details. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -82,6 +93,13 @@ export default function TVMDetailsScreen() {
       `S/N Number: ${tvm?.serial_number}`,
       [{ text: "OK" }]
     );
+  };
+
+  const handleImagePress = (imageUrl: string | null) => {
+    if (imageUrl) {
+      setFullScreenImageUrl(imageUrl);
+      setShowFullScreenImage(true);
+    }
   };
 
   if (loading) {
@@ -163,20 +181,51 @@ export default function TVMDetailsScreen() {
           <>
             <Card style={cardStyle(styles.detailsCard)}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Location Images</Text>
-              <View style={styles.locationImages}>
+              <View style={styles.imagesSection}>
                 <View style={styles.imageContainer}>
                   <Text style={[styles.imageLabel, { color: theme.secondaryText }]}>Station</Text>
-                  <View style={[styles.placeholderImage, { backgroundColor: COLORS.neutral[100] }]}>
-                    <Building2 size={32} color={COLORS.neutral[400]} />
-                    <Text style={[styles.placeholderText, { color: COLORS.neutral[400] }]}>Station Image</Text>
-                  </View>
+                  {tvm.location_details?.station_image_url ? (
+                    <TouchableOpacity 
+                      style={styles.imageWrapper}
+                      onPress={() => {
+                        const stationImageUrl = tvm.location_details?.station_image_url ?? null;
+                        handleImagePress(stationImageUrl);
+                      }}
+                    >
+                      <Image 
+                        source={{ uri: tvm.location_details.station_image_url }} 
+                        style={styles.locationImage}
+                        resizeMode="cover"
+                        onError={(e) => console.error('Error loading station image:', e.nativeEvent.error)}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={[styles.placeholderImage, { backgroundColor: COLORS.neutral[100] }]}>
+                      <Building2 size={32} color={COLORS.neutral[400]} />
+                      <Text style={[styles.placeholderText, { color: COLORS.neutral[400] }]}>Station Image</Text>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.imageContainer}>
-                  <Text style={[styles.imageLabel, { color: theme.secondaryText }]}>Kiosk</Text>
-                  <View style={[styles.placeholderImage, { backgroundColor: COLORS.neutral[100] }]}>
-                    <Monitor size={32} color={COLORS.neutral[400]} />
-                    <Text style={[styles.placeholderText, { color: COLORS.neutral[400] }]}>Kiosk Image</Text>
-                  </View>
+                  <Text style={[styles.imageLabel, { color: theme.secondaryText }]}>Device</Text>
+                  {tvm.device_image_url ? (
+                    <TouchableOpacity 
+                      style={styles.imageWrapper}
+                      onPress={() => handleImagePress(tvm.device_image_url)}
+                    >
+                      <Image 
+                        source={{ uri: tvm.device_image_url }} 
+                        style={styles.locationImage}
+                        resizeMode="cover"
+                        onError={(e) => console.error('Error loading device image:', e.nativeEvent.error)}
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={[styles.placeholderImage, { backgroundColor: COLORS.neutral[100] }]}>
+                      <Monitor size={32} color={COLORS.neutral[400]} />
+                      <Text style={[styles.placeholderText, { color: COLORS.neutral[400] }]}>Device Image</Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </Card>
@@ -254,6 +303,7 @@ export default function TVMDetailsScreen() {
 
         <Card style={cardStyle(styles.detailsCard)}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Device Information</Text>
+          
           <View style={[styles.detailItem, { borderBottomColor: theme.border }]}>
             <Text style={[styles.detailLabel, { color: theme.secondaryText }]}>Type</Text>
             <Text style={[styles.detailValue, { color: theme.text }]}>{tvm.type}</Text>
@@ -271,6 +321,29 @@ export default function TVMDetailsScreen() {
             </View>
           )}
         </Card>
+
+        {/* Full Screen Image Modal */}
+        <Modal
+          visible={showFullScreenImage}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowFullScreenImage(false)}
+        >
+          <TouchableOpacity 
+            style={styles.fullScreenImageContainer} 
+            activeOpacity={1} 
+            onPress={() => setShowFullScreenImage(false)}
+          >
+            {fullScreenImageUrl && (
+              <Image 
+                source={{ uri: fullScreenImageUrl }} 
+                style={styles.fullScreenImage}
+                resizeMode="contain"
+                onError={(e) => console.error('Error loading full screen image:', e.nativeEvent.error)}
+              />
+            )}
+          </TouchableOpacity>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -398,29 +471,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.xs,
   },
-  locationImages: {
+  imagesSection: {
     flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
+    justifyContent: 'space-between',
+    padding: SPACING.md,
+    gap: SPACING.md,
   },
   imageContainer: {
     flex: 1,
+    gap: SPACING.xs,
   },
   imageLabel: {
-    fontSize: FONT_SIZES.xs,
+    fontSize: FONT_SIZES.sm,
     fontFamily: FONTS.medium,
     marginBottom: SPACING.xs,
   },
+  imageWrapper: {
+    width: '100%',
+    height: 200,
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+    backgroundColor: COLORS.neutral[100],
+  },
+  locationImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: COLORS.neutral[100],
+  },
   placeholderImage: {
     width: '100%',
-    height: 120,
-    borderRadius: BORDER_RADIUS.sm,
+    height: 200,
+    borderRadius: BORDER_RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
     gap: SPACING.xs,
+    backgroundColor: COLORS.neutral[100],
   },
   placeholderText: {
-    fontSize: FONT_SIZES.xs,
+    fontSize: FONT_SIZES.sm,
     fontFamily: FONTS.medium,
   },
   staffContainer: {
@@ -465,5 +553,15 @@ const styles = StyleSheet.create({
   staffShiftText: {
     fontSize: FONT_SIZES.xs,
     fontFamily: FONTS.regular,
+  },
+  fullScreenImageContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
   },
 }); 

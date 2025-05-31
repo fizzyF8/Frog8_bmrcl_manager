@@ -57,6 +57,7 @@ export interface ProfileResponse {
 
 export interface LocationDetails {
   station: string;
+  station_image_url: string | null;
   gate: string;
   gate_type: string;
   uptime: string;
@@ -73,6 +74,8 @@ export interface TVM {
   mac_address: string | null;
   organization_id: number;
   status: string;
+  device_image: string | null;
+  device_image_url: string | null;
   location_details?: LocationDetails;
 }
 
@@ -318,13 +321,26 @@ export const authApi = {
 
 export const tvmApi = {
   getTVMs: async (): Promise<TVMsResponse> => {
-    const response = await api.get('/devices/list');
-    return response;
+    try {
+      const response = await api.get('/devices/list');
+      console.log('TVMs API response:', response.data);
+      return response;
+    } catch (error) {
+      console.error('Error fetching TVMs:', error);
+      throw error;
+    }
   },
 
   getTVM: async (id: number): Promise<TVMResponse> => {
-    const response = await api.get<TVMResponse>(`/devices/show/${id}`);
-    return response.data;
+    try {
+      console.log('Fetching TVM details for ID:', id);
+      const response = await api.get<TVMResponse>(`/devices/show/${id}`);
+      console.log('TVM details API response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching TVM details:', error);
+      throw error;
+    }
   },
 
   getTVMDetails: async (id: string): Promise<TVMResponse> => {

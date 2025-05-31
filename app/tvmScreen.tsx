@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, ViewStyle, Animated, FlatList, RefreshControl, TextInput, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, ViewStyle, Animated, FlatList, RefreshControl, TextInput, Modal, Alert, Image, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS, SHADOWS } from '@/constants/theme';
 import Card from '@/components/ui/Card';
@@ -43,6 +43,9 @@ const getStatusLabel = (status: string) => {
 
 // Create a memoized TVM card component
 const TVMCard = React.memo(({ item, onPress, theme }: { item: TVM; onPress: () => void; theme: any }) => {
+  const [showFullScreenImage, setShowFullScreenImage] = useState(false);
+  const [fullScreenImageUrl, setFullScreenImageUrl] = useState<string | null>(null);
+
   const handleSerialNumberPress = () => {
     const commonPrefix = "F8TVM200025032025";
     const kioskNumber = item.serial_number.replace(commonPrefix, "");
@@ -51,6 +54,13 @@ const TVMCard = React.memo(({ item, onPress, theme }: { item: TVM; onPress: () =
       `S/N Number: ${item.serial_number}`,
       [{ text: "OK" }]
     );
+  };
+
+  const handleImagePress = (imageUrl: string | null) => {
+    if (imageUrl) {
+      setFullScreenImageUrl(imageUrl);
+      setShowFullScreenImage(true);
+    }
   };
 
   return (
@@ -63,7 +73,7 @@ const TVMCard = React.memo(({ item, onPress, theme }: { item: TVM; onPress: () =
         }}
       >
         <View style={styles.tvmHeader}>
-          <View>
+          <View style={styles.tvmInfo}>
             <TouchableOpacity onPress={handleSerialNumberPress}>
               <Text style={[styles.serialNumber, { color: theme.text, fontFamily: FONTS.bold }]}>
                 Kiosk: {item.serial_number.replace("F8TVM200025032025", "")}
@@ -79,24 +89,77 @@ const TVMCard = React.memo(({ item, onPress, theme }: { item: TVM; onPress: () =
         </View>
 
         {item.location_details && (
-          <>
-            <View style={styles.locationImages}>
-              <View style={styles.imageContainer}>
-                <Text style={[styles.imageLabel, { color: theme.secondaryText }]}>Station</Text>
+          <View style={styles.locationImages}>
+            <View style={styles.imageContainer}>
+              <Text style={[styles.imageLabel, { color: theme.secondaryText }]}>Station</Text>
+              {item.location_details.station_image_url ? (
+                <TouchableOpacity 
+                  style={styles.imageWrapper}
+                  onPress={() => {
+                    const stationImageUrl = item.location_details?.station_image_url ?? null;
+                    handleImagePress(stationImageUrl);
+                  }}
+                >
+                  <Image 
+                    source={{ uri: item.location_details.station_image_url }} 
+                    style={styles.locationImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ) : (
                 <View style={[styles.placeholderImage, { backgroundColor: COLORS.neutral[100] }]}>
                   <Building2 size={32} color={COLORS.neutral[400]} />
                   <Text style={[styles.placeholderText, { color: COLORS.neutral[400] }]}>Station Image</Text>
                 </View>
-              </View>
-              <View style={styles.imageContainer}>
-                <Text style={[styles.imageLabel, { color: theme.secondaryText }]}>Kiosk</Text>
+              )}
+            </View>
+            <View style={styles.imageContainer}>
+              <Text style={[styles.imageLabel, { color: theme.secondaryText }]}>Device</Text>
+              {item.device_image_url ? (
+                <TouchableOpacity 
+                  style={styles.imageWrapper}
+                  onPress={() => handleImagePress(item.device_image_url)}
+                >
+                  <Image 
+                    source={{ uri: item.device_image_url }} 
+                    style={styles.locationImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              ) : (
                 <View style={[styles.placeholderImage, { backgroundColor: COLORS.neutral[100] }]}>
                   <Monitor size={32} color={COLORS.neutral[400]} />
-                  <Text style={[styles.placeholderText, { color: COLORS.neutral[400] }]}>Kiosk Image</Text>
+                  <Text style={[styles.placeholderText, { color: COLORS.neutral[400] }]}>Device Image</Text>
                 </View>
-              </View>
+              )}
             </View>
+          </View>
+        )}
 
+        {/* Full Screen Image Modal */}
+        <Modal
+          visible={showFullScreenImage}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowFullScreenImage(false)}
+        >
+          <TouchableOpacity 
+            style={styles.fullScreenImageContainer} 
+            activeOpacity={1} 
+            onPress={() => setShowFullScreenImage(false)}
+          >
+            {fullScreenImageUrl && (
+              <Image 
+                source={{ uri: fullScreenImageUrl }} 
+                style={styles.fullScreenImage}
+                resizeMode="contain"
+              />
+            )}
+          </TouchableOpacity>
+        </Modal>
+
+        {item.location_details && (
+          <>
             <View style={styles.staffContainer}>
               <Text style={[styles.staffTitle, { color: theme.text }]}>Assigned Staff</Text>
               <View style={styles.staffRow}>
@@ -690,6 +753,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: SPACING.sm,
   },
+  tvmInfo: {
+    flex: 1,
+  },
   serialNumber: {
     fontSize: FONT_SIZES.xl,
     fontFamily: FONTS.bold,
@@ -839,27 +905,40 @@ const styles = StyleSheet.create({
   },
   locationImages: {
     flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
+    justifyContent: 'space-between',
+    padding: 16,
+    gap: 16,
   },
   imageContainer: {
     flex: 1,
+    gap: 8,
   },
   imageLabel: {
-    fontSize: FONT_SIZES.xs,
+    fontSize: 12,
     fontFamily: FONTS.medium,
-    marginBottom: SPACING.xs,
+  },
+  imageWrapper: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: COLORS.neutral[100],
+  },
+  locationImage: {
+    width: '100%',
+    height: '100%',
   },
   placeholderImage: {
-    aspectRatio: 16/9,
-    borderRadius: BORDER_RADIUS.md,
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
   placeholderText: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: 12,
     fontFamily: FONTS.medium,
-    marginTop: SPACING.xs,
   },
   staffContainer: {
     marginTop: SPACING.sm,
@@ -914,5 +993,26 @@ const styles = StyleSheet.create({
   },
   filterScroll: {
     flex: 1,
+  },
+  deviceImageContainer: {
+    marginTop: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+    backgroundColor: COLORS.neutral[100],
+  },
+  deviceImage: {
+    width: '100%',
+    height: 150,
+    backgroundColor: COLORS.neutral[100],
+  },
+  fullScreenImageContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
   },
 }); 
