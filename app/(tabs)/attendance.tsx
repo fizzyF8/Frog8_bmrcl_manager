@@ -398,7 +398,15 @@ export default function AttendanceScreen() {
       // Set attendance history: include all records, and if today's is complete, it will naturally be included.
       // If today's attendance is not complete or doesn't exist, only historical records are shown.
       // The check for including today's attendance in history will implicitly happen in the render logic now.
-      setAttendanceHistory(attendanceResponse.attendance);
+      
+      // Sort attendance history from latest to oldest
+      const sortedAttendanceHistory = attendanceResponse.attendance.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateB.getTime() - dateA.getTime(); // Sort in descending order (latest first)
+      });
+      
+      setAttendanceHistory(sortedAttendanceHistory);
 
       setSyncState('synced');
       setLastSyncTime(new Date());
@@ -731,11 +739,11 @@ export default function AttendanceScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PRESENT':
+      case 'Present':
         return 'success';
-      case 'LATE':
+      case 'Late':
         return 'warning';
-      case 'ABSENT':
+      case 'Absent':
         return 'error';
       default:
         return 'default';
