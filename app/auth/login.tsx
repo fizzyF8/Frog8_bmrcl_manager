@@ -6,6 +6,8 @@ import Button from '@/components/ui/Button';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { useAuth } from '@/context/auth';
 import { useRouter } from 'expo-router';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import { validateEmail, validateRequired, ValidationError } from '@/utils/validation';
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -13,121 +15,143 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<ValidationError[]>([]);
   const passwordInputRef = useRef<TextInput>(null);
   const router = useRouter();
 
+  const validateForm = (): boolean => {
+    const newErrors: ValidationError[] = [];
+
+    if (!validateRequired(email)) {
+      newErrors.push({ field: 'email', message: 'Email is required' });
+    } else if (!validateEmail(email)) {
+      newErrors.push({ field: 'email', message: 'Please enter a valid email address' });
+    }
+
+    if (!validateRequired(password)) {
+      newErrors.push({ field: 'password', message: 'Password is required' });
+    }
+
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
+
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Please enter both email and password');
+    if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
-    setError('');
+    setErrors([]);
 
     try {
       await login(email, password);
     } catch (error: any) {
-      setError(error.message || 'Login failed. Please try again.');
+      setErrors([{ field: 'general', message: error.message || 'Login failed. Please try again.' }]);
       Alert.alert('Login Error', error.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const getFieldError = (field: string): string | undefined => {
+    return errors.find(error => error.field === field)?.message;
+  };
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.logoContainer}>
-          {/* <View style={styles.logoBackground}> */}
-          <View>
-            <Image 
-              source={require('@/assets/images/icon.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
+    <ErrorBoundary>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.logoContainer}>
+            {/* <View style={styles.logoBackground}> */}
+            <View>
+              <Image 
+                source={require('@/assets/images/icon.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
+            {/* <Text style={styles.appName}>Veriphy</Text> */}
+            {/* <Text style={styles.tagline}> Field Operations Management System</Text> */}
+          </View>
+          
+          <View style={styles.formContainer}>
+            <Text style={styles.title}>Sign In</Text>
+            <Text style={styles.subtitle}>Sign in to your account to continue</Text>
+            
+            {errors.find(error => error.field === 'general') && (
+              <Text style={styles.errorText}>{errors.find(error => error.field === 'general')?.message}</Text>
+            )}
+            
+            <Input 
+              label="Email"
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                setErrors(errors.filter(error => error.field !== 'email'));
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              leftIcon={<Mail size={20} color={COLORS.neutral[500]} />}
+              error={getFieldError('email')}
+              returnKeyType="next"
+              onSubmitEditing={() => {
+                passwordInputRef.current?.focus();
+              }}
+            />
+            
+            <Input
+              ref={passwordInputRef}
+              label="Password"
+              placeholder="Enter your password"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setErrors(errors.filter(error => error.field !== 'password'));
+              }}
+              secureTextEntry={!showPassword}
+              leftIcon={<Lock size={20} color={COLORS.neutral[500]} />}
+              rightIcon={
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  {showPassword ? (
+                    <EyeOff size={20} color={COLORS.neutral[500]} />
+                  ) : (
+                    <Eye size={20} color={COLORS.neutral[500]} />
+                  )}
+                </TouchableOpacity>
+              }
+              error={getFieldError('password')}
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
+            />
+            
+            <TouchableOpacity 
+              style={styles.forgotPasswordContainer}
+              onPress={() => router.push('/auth/reset-password')}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+            
+            <Button
+              title="Sign In"
+              fullWidth
+              loading={isLoading}
+              onPress={handleLogin}
+              style={styles.loginButton}
             />
           </View>
-          {/* <Text style={styles.appName}>Veriphy</Text> */}
-          {/* <Text style={styles.tagline}> Field Operations Management System</Text> */}
-        </View>
-        
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Sign In</Text>
-          <Text style={styles.subtitle}>Sign in to your account to continue</Text>
           
-          {error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : null}
-          
-          <Input 
-            label="Email"
-            placeholder="Enter your email"
-            value={email}
-            onChangeText={(text) => {
-              setEmail(text);
-              setError('');
-            }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            leftIcon={<Mail size={20} color={COLORS.neutral[500]} />}
-            error={error ? ' ' : undefined}
-            returnKeyType="next"
-            onSubmitEditing={() => {
-              passwordInputRef.current?.focus();
-            }}
-          />
-          
-          <Input
-            ref={passwordInputRef}
-            label="Password"
-            placeholder="Enter your password"
-            value={password}
-            onChangeText={(text) => {
-              setPassword(text);
-              setError('');
-            }}
-            secureTextEntry={!showPassword}
-            leftIcon={<Lock size={20} color={COLORS.neutral[500]} />}
-            rightIcon={
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                {showPassword ? (
-                  <EyeOff size={20} color={COLORS.neutral[500]} />
-                ) : (
-                  <Eye size={20} color={COLORS.neutral[500]} />
-                )}
-              </TouchableOpacity>
-            }
-            error={error ? ' ' : undefined}
-            returnKeyType="done"
-            onSubmitEditing={handleLogin}
-          />
-          
-          <TouchableOpacity 
-            style={styles.forgotPasswordContainer}
-            onPress={() => router.push('/auth/reset-password')}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
-          
-          <Button
-            title="Sign In"
-            fullWidth
-            loading={isLoading}
-            onPress={handleLogin}
-            style={styles.loginButton}
-          />
-        </View>
-        
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 Frog8. All rights reserved.</Text>
-          <Text style={styles.versionText}>Version 1.0.0</Text>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>© 2025 Frog8. All rights reserved.</Text>
+            <Text style={styles.versionText}>Version 1.0.0</Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ErrorBoundary>
   );
 }
 

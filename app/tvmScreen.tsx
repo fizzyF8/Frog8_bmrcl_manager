@@ -10,6 +10,7 @@ import { TVM, tvmApi, LocationDetails } from '@/utils/api';
 import { useTheme } from '@/context/theme';
 import { getTimeElapsedString } from '@/utils/time';
 import { router, useRouter } from 'expo-router';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
 const getStatusType = (status: string) => {
   switch (status) {
@@ -464,220 +465,222 @@ export default function TVMsScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={theme.text} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.text }]}>TVMs</Text>
+    <ErrorBoundary>
+      <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: theme.text }]}>TVMs</Text>
+          </View>
+          {lastSyncTime && (
+            <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime)} />
+          )}
         </View>
-        {lastSyncTime && (
-          <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime)} />
-        )}
-      </View>
 
-      <Animated.View 
-        style={[
-          styles.searchContainer, 
-          {
-            transform: [{
-              translateY: searchBarHeight.interpolate({
-                inputRange: [0, 1],
-                outputRange: [-80, 0]
-              })
-            }],
-            opacity: searchBarHeight,
-            maxHeight: 80,
-            overflow: 'hidden',
-            backgroundColor: theme.background
-          }
-        ]}
-      >
-        <View style={[styles.searchInput, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Search size={20} color={theme.secondaryText} />
-          <TextInput
-            style={[styles.searchTextInput, { color: theme.text }]}
-            placeholder="Search TVMs..."
-            placeholderTextColor={theme.secondaryText}
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-            onFocus={handleSearchFocus}
-            onBlur={handleSearchBlur}
-          />
-        </View>
-        <TouchableOpacity 
-          style={[styles.filterButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-          onPress={() => setShowFilterModal(true)}
+        <Animated.View 
+          style={[
+            styles.searchContainer, 
+            {
+              transform: [{
+                translateY: searchBarHeight.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-80, 0]
+                })
+              }],
+              opacity: searchBarHeight,
+              maxHeight: 80,
+              overflow: 'hidden',
+              backgroundColor: theme.background
+            }
+          ]}
         >
-          <Filter size={20} color={theme.secondaryText} />
-        </TouchableOpacity>
-      </Animated.View>
+          <View style={[styles.searchInput, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Search size={20} color={theme.secondaryText} />
+            <TextInput
+              style={[styles.searchTextInput, { color: theme.text }]}
+              placeholder="Search TVMs..."
+              placeholderTextColor={theme.secondaryText}
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
+            />
+          </View>
+          <TouchableOpacity 
+            style={[styles.filterButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+            onPress={() => setShowFilterModal(true)}
+          >
+            <Filter size={20} color={theme.secondaryText} />
+          </TouchableOpacity>
+        </Animated.View>
 
-      <Modal
-        visible={showFilterModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowFilterModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Filter TVMs</Text>
-              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
-                <Text style={[styles.closeButton, { color: theme.text }]}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.filterSection}>
-                <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Show</Text>
-                <View style={styles.filterRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterOption,
-                      showAllMachines && { backgroundColor: COLORS.primary.light }
-                    ]}
-                    onPress={() => setShowAllMachines(true)}
-                  >
-                    <Text style={[styles.filterOptionText, { color: showAllMachines ? COLORS.white : theme.text }]}>
-                      All Machines
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterOption,
-                      !showAllMachines && { backgroundColor: COLORS.primary.light }
-                    ]}
-                    onPress={() => setShowAllMachines(false)}
-                  >
-                    <Text style={[styles.filterOptionText, { color: !showAllMachines ? COLORS.white : theme.text }]}>
-                      Selected
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+        <Modal
+          visible={showFilterModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowFilterModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Filter TVMs</Text>
+                <TouchableOpacity onPress={() => setShowFilterModal(false)}>
+                  <Text style={[styles.closeButton, { color: theme.text }]}>✕</Text>
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.filterSection}>
-                <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Station</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterOption,
-                      !selectedStation && { backgroundColor: COLORS.primary.light }
-                    ]}
-                    onPress={() => setSelectedStation(null)}
-                  >
-                    <Text style={[styles.filterOptionText, { color: !selectedStation ? COLORS.white : theme.text }]}>
-                      All
-                    </Text>
-                  </TouchableOpacity>
-                  {stations.map((station) => (
+              <ScrollView style={styles.modalBody}>
+                <View style={styles.filterSection}>
+                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Show</Text>
+                  <View style={styles.filterRow}>
                     <TouchableOpacity
-                      key={station}
                       style={[
                         styles.filterOption,
-                        selectedStation === station && { backgroundColor: COLORS.primary.light }
+                        showAllMachines && { backgroundColor: COLORS.primary.light }
                       ]}
-                      onPress={() => setSelectedStation(station)}
+                      onPress={() => setShowAllMachines(true)}
                     >
-                      <Text style={[styles.filterOptionText, { color: selectedStation === station ? COLORS.white : theme.text }]}>
-                        {station}
+                      <Text style={[styles.filterOptionText, { color: showAllMachines ? COLORS.white : theme.text }]}>
+                        All Machines
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.filterOption,
+                        !showAllMachines && { backgroundColor: COLORS.primary.light }
+                      ]}
+                      onPress={() => setShowAllMachines(false)}
+                    >
+                      <Text style={[styles.filterOptionText, { color: !showAllMachines ? COLORS.white : theme.text }]}>
+                        Selected
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
 
-              {selectedStation && (
                 <View style={styles.filterSection}>
-                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Gate</Text>
+                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Station</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
                     <TouchableOpacity
                       style={[
                         styles.filterOption,
-                        !selectedGate && { backgroundColor: COLORS.primary.light }
+                        !selectedStation && { backgroundColor: COLORS.primary.light }
                       ]}
-                      onPress={() => setSelectedGate(null)}
+                      onPress={() => setSelectedStation(null)}
                     >
-                      <Text style={[styles.filterOptionText, { color: !selectedGate ? COLORS.white : theme.text }]}>
+                      <Text style={[styles.filterOptionText, { color: !selectedStation ? COLORS.white : theme.text }]}>
                         All
                       </Text>
                     </TouchableOpacity>
-                    {gates.map((gate) => (
+                    {stations.map((station) => (
                       <TouchableOpacity
-                        key={gate}
+                        key={station}
                         style={[
                           styles.filterOption,
-                          selectedGate === gate && { backgroundColor: COLORS.primary.light }
+                          selectedStation === station && { backgroundColor: COLORS.primary.light }
                         ]}
-                        onPress={() => setSelectedGate(gate)}
+                        onPress={() => setSelectedStation(station)}
                       >
-                        <Text style={[styles.filterOptionText, { color: selectedGate === gate ? COLORS.white : theme.text }]}>
-                          {gate}
+                        <Text style={[styles.filterOptionText, { color: selectedStation === station ? COLORS.white : theme.text }]}>
+                          {station}
                         </Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
                 </View>
-              )}
 
-              <View style={styles.filterSection}>
-                <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Status</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-                  {['1', '2', '3', '0', null].map((statusValue) => {
-                    const label = statusValue === '1' ? 'Operational' : statusValue === '2' ? 'Maintenance' : statusValue === '3' ? 'Error' : statusValue === '0' ? 'Offline' : 'All';
-                    return (
+                {selectedStation && (
+                  <View style={styles.filterSection}>
+                    <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Gate</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
                       <TouchableOpacity
-                        key={statusValue}
                         style={[
                           styles.filterOption,
-                          filterStatus === statusValue && { backgroundColor: COLORS.primary.light }
+                          !selectedGate && { backgroundColor: COLORS.primary.light }
                         ]}
-                        onPress={() => setFilterStatus(statusValue)}
+                        onPress={() => setSelectedGate(null)}
                       >
-                        <Text style={[styles.filterOptionText, { color: filterStatus === statusValue ? COLORS.white : theme.text }]}>
-                          {label}
+                        <Text style={[styles.filterOptionText, { color: !selectedGate ? COLORS.white : theme.text }]}>
+                          All
                         </Text>
                       </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            </ScrollView>
+                      {gates.map((gate) => (
+                        <TouchableOpacity
+                          key={gate}
+                          style={[
+                            styles.filterOption,
+                            selectedGate === gate && { backgroundColor: COLORS.primary.light }
+                          ]}
+                          onPress={() => setSelectedGate(gate)}
+                        >
+                          <Text style={[styles.filterOptionText, { color: selectedGate === gate ? COLORS.white : theme.text }]}>
+                            {gate}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
 
-            <TouchableOpacity 
-              style={[styles.applyFilterButton, { backgroundColor: COLORS.primary.light }]} 
-              onPress={() => setShowFilterModal(false)}
-            >
-              <Text style={styles.applyFilterButtonText}>Apply Filters</Text>
-            </TouchableOpacity>
+                <View style={styles.filterSection}>
+                  <Text style={[styles.filterSectionTitle, { color: theme.text }]}>Status</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+                    {['1', '2', '3', '0', null].map((statusValue) => {
+                      const label = statusValue === '1' ? 'Operational' : statusValue === '2' ? 'Maintenance' : statusValue === '3' ? 'Error' : statusValue === '0' ? 'Offline' : 'All';
+                      return (
+                        <TouchableOpacity
+                          key={statusValue}
+                          style={[
+                            styles.filterOption,
+                            filterStatus === statusValue && { backgroundColor: COLORS.primary.light }
+                          ]}
+                          onPress={() => setFilterStatus(statusValue)}
+                        >
+                          <Text style={[styles.filterOptionText, { color: filterStatus === statusValue ? COLORS.white : theme.text }]}>
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </ScrollView>
+
+              <TouchableOpacity 
+                style={[styles.applyFilterButton, { backgroundColor: COLORS.primary.light }]} 
+                onPress={() => setShowFilterModal(false)}
+              >
+                <Text style={styles.applyFilterButtonText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
-      <FlatList
-        data={filteredTVMs}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        getItemLayout={getItemLayout}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        contentContainerStyle={[styles.listContent, { paddingTop: 80 }]}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={fetchTVMs}
-            colors={[COLORS.primary.light]}
-            tintColor={COLORS.primary.light}
-          />
-        }
-      />
-    </SafeAreaView>
+        <FlatList
+          data={filteredTVMs}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          getItemLayout={getItemLayout}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          contentContainerStyle={[styles.listContent, { paddingTop: 80 }]}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={fetchTVMs}
+              colors={[COLORS.primary.light]}
+              tintColor={COLORS.primary.light}
+            />
+          }
+        />
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 }
 

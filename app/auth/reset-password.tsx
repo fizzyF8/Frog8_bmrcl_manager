@@ -6,6 +6,8 @@ import Button from '@/components/ui/Button';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { authApi } from '@/utils/api';
 import { router } from 'expo-router';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import { validateEmail, validatePassword, validateRequired, ValidationError } from '@/utils/validation';
 
 export default function ResetPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -14,21 +16,43 @@ export default function ResetPasswordScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<ValidationError[]>([]);
 
-  const handleResetPassword = async () => {
-    if (!email || !newPassword || !confirmPassword) {
-      setError('Please fill in all fields');
-      return;
+  const validateForm = (): boolean => {
+    const newErrors: ValidationError[] = [];
+
+    if (!validateRequired(email)) {
+      newErrors.push({ field: 'email', message: 'Email is required' });
+    } else if (!validateEmail(email)) {
+      newErrors.push({ field: 'email', message: 'Please enter a valid email address' });
     }
 
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+    if (!validateRequired(newPassword)) {
+      newErrors.push({ field: 'newPassword', message: 'New password is required' });
+    } else if (!validatePassword(newPassword)) {
+      newErrors.push({ 
+        field: 'newPassword', 
+        message: 'Password must be at least 8 characters long and contain uppercase, lowercase, and numbers' 
+      });
+    }
+
+    if (!validateRequired(confirmPassword)) {
+      newErrors.push({ field: 'confirmPassword', message: 'Please confirm your password' });
+    } else if (newPassword !== confirmPassword) {
+      newErrors.push({ field: 'confirmPassword', message: 'Passwords do not match' });
+    }
+
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
+
+  const handleResetPassword = async () => {
+    if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
-    setError('');
+    setErrors([]);
 
     try {
       const response = await authApi.resetPassword(email, newPassword, confirmPassword);
@@ -43,118 +67,124 @@ export default function ResetPasswordScreen() {
         throw new Error(response.message || 'Password reset failed');
       }
     } catch (error: any) {
-      setError(error.message || 'Password reset failed. Please try again.');
+      setErrors([{ field: 'general', message: error.message || 'Password reset failed. Please try again.' }]);
       Alert.alert('Reset Error', error.message || 'Password reset failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const getFieldError = (field: string): string | undefined => {
+    return errors.find(error => error.field === field)?.message;
+  };
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.logoContainer}>
-          <View>
-            <Image 
-              source={require('@/assets/images/icon.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
+    <ErrorBoundary>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.logoContainer}>
+            <View>
+              <Image 
+                source={require('@/assets/images/icon.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+
+          <View style={styles.formContainer}>
+            <Text style={styles.title}>Reset Password</Text>
+            <Text style={styles.subtitle}>Enter your email and new password to reset your account</Text>
+            
+            {errors.find(error => error.field === 'general') && (
+              <Text style={styles.errorText}>{errors.find(error => error.field === 'general')?.message}</Text>
+            )}
+            
+            <Input 
+              label="Email"
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={(text) => {
+                setEmail(text);
+                setErrors(errors.filter(error => error.field !== 'email'));
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              leftIcon={<Mail size={20} color={COLORS.neutral[500]} />}
+              error={getFieldError('email')}
+            />
+            
+            <Input
+              label="New Password"
+              placeholder="Enter new password"
+              value={newPassword}
+              onChangeText={(text) => {
+                setNewPassword(text);
+                setErrors(errors.filter(error => error.field !== 'newPassword'));
+              }}
+              secureTextEntry={!showPassword}
+              leftIcon={<Lock size={20} color={COLORS.neutral[500]} />}
+              rightIcon={
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  {showPassword ? (
+                    <EyeOff size={20} color={COLORS.neutral[500]} />
+                  ) : (
+                    <Eye size={20} color={COLORS.neutral[500]} />
+                  )}
+                </TouchableOpacity>
+              }
+              error={getFieldError('newPassword')}
+            />
+
+            <Input
+              label="Confirm Password"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                setErrors(errors.filter(error => error.field !== 'confirmPassword'));
+              }}
+              secureTextEntry={!showConfirmPassword}
+              leftIcon={<Lock size={20} color={COLORS.neutral[500]} />}
+              rightIcon={
+                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                  {showConfirmPassword ? (
+                    <EyeOff size={20} color={COLORS.neutral[500]} />
+                  ) : (
+                    <Eye size={20} color={COLORS.neutral[500]} />
+                  )}
+                </TouchableOpacity>
+              }
+              error={getFieldError('confirmPassword')}
+            />
+            
+            <Button
+              title="Reset Password"
+              fullWidth
+              loading={isLoading}
+              onPress={handleResetPassword}
+              style={styles.resetButton}
+            />
+
+            <Button
+              title="Back to Login"
+              variant="outlined"
+              fullWidth
+              onPress={() => router.back()}
+              style={styles.backButton}
             />
           </View>
-        </View>
 
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Reset Password</Text>
-          <Text style={styles.subtitle}>Enter your email and new password to reset your account</Text>
-          
-          {error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : null}
-          
-          <Input 
-            label="Email"
-            placeholder="Enter your email"
-            value={email}
-            onChangeText={(text) => {
-              setEmail(text);
-              setError('');
-            }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            leftIcon={<Mail size={20} color={COLORS.neutral[500]} />}
-            error={error ? ' ' : undefined}
-          />
-          
-          <Input
-            label="New Password"
-            placeholder="Enter new password"
-            value={newPassword}
-            onChangeText={(text) => {
-              setNewPassword(text);
-              setError('');
-            }}
-            secureTextEntry={!showPassword}
-            leftIcon={<Lock size={20} color={COLORS.neutral[500]} />}
-            rightIcon={
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                {showPassword ? (
-                  <EyeOff size={20} color={COLORS.neutral[500]} />
-                ) : (
-                  <Eye size={20} color={COLORS.neutral[500]} />
-                )}
-              </TouchableOpacity>
-            }
-            error={error ? ' ' : undefined}
-          />
-
-          <Input
-            label="Confirm Password"
-            placeholder="Confirm new password"
-            value={confirmPassword}
-            onChangeText={(text) => {
-              setConfirmPassword(text);
-              setError('');
-            }}
-            secureTextEntry={!showConfirmPassword}
-            leftIcon={<Lock size={20} color={COLORS.neutral[500]} />}
-            rightIcon={
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                {showConfirmPassword ? (
-                  <EyeOff size={20} color={COLORS.neutral[500]} />
-                ) : (
-                  <Eye size={20} color={COLORS.neutral[500]} />
-                )}
-              </TouchableOpacity>
-            }
-            error={error ? ' ' : undefined}
-          />
-          
-          <Button
-            title="Reset Password"
-            fullWidth
-            loading={isLoading}
-            onPress={handleResetPassword}
-            style={styles.resetButton}
-          />
-
-          <Button
-            title="Back to Login"
-            variant="outlined"
-            fullWidth
-            onPress={() => router.back()}
-            style={styles.backButton}
-          />
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 Frog8. All rights reserved.</Text>
-          <Text style={styles.versionText}>Version 1.0.0</Text>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>© 2025 Frog8. All rights reserved.</Text>
+            <Text style={styles.versionText}>Version 1.0.0</Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ErrorBoundary>
   );
 }
 

@@ -12,6 +12,7 @@ import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
 import { taskApi, Task, tvmApi, TVM, authApi, UserProfile } from '@/utils/api';
 import CreateTaskModal from '@/components/task/CreateTaskModal';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
 const styles = StyleSheet.create({
   container: {
@@ -381,120 +382,122 @@ export default function TasksScreen() {
   );
 
   return (
-    <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={theme.text} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.text }]}>Tasks</Text>
+    <ErrorBoundary>
+      <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: theme.text }]}>Tasks</Text>
+          </View>
+          <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
         </View>
-        <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
-      </View>
 
-      <View style={[styles.filterTabs, { borderBottomColor: theme.border }]}>
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            selectedFilter === 'ALL' && styles.activeFilterTab,
-            { borderColor: theme.border, backgroundColor: selectedFilter === 'ALL' ? COLORS.primary.light : theme.card }
-          ]}
-          onPress={() => setSelectedFilter('ALL')}
-        >
-          <Text style={[
-            styles.filterTabText,
-            selectedFilter === 'ALL' && styles.activeFilterTabText,
-            { color: selectedFilter === 'ALL' ? COLORS.white : theme.text }
-          ]}>
-            All
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            selectedFilter === 'pending' && styles.activeFilterTab,
-            { borderColor: theme.border, backgroundColor: selectedFilter === 'pending' ? COLORS.primary.light : theme.card }
-          ]}
-          onPress={() => setSelectedFilter('pending')}
-        >
-          <Text style={[
-            styles.filterTabText,
-            selectedFilter === 'pending' && styles.activeFilterTabText,
-            { color: selectedFilter === 'pending' ? COLORS.white : theme.text }
-          ]}>
-            Pending
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            selectedFilter === 'in progress' && styles.activeFilterTab,
-            { borderColor: theme.border, backgroundColor: selectedFilter === 'in progress' ? COLORS.primary.light : theme.card }
-          ]}
-          onPress={() => setSelectedFilter('in progress')}
-        >
-          <Text style={[
-            styles.filterTabText,
-            selectedFilter === 'in progress' && styles.activeFilterTabText,
-            { color: selectedFilter === 'in progress' ? COLORS.white : theme.text }
-          ]}>
-            In Progress
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            selectedFilter === 'completed' && styles.activeFilterTab,
-            { borderColor: theme.border, backgroundColor: selectedFilter === 'completed' ? COLORS.primary.light : theme.card }
-          ]}
-          onPress={() => setSelectedFilter('completed')}
-        >
-          <Text style={[
-            styles.filterTabText,
-            selectedFilter === 'completed' && styles.activeFilterTabText,
-            { color: selectedFilter === 'completed' ? COLORS.white : theme.text }
-          ]}>
-            Completed
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab,
-            selectedFilter === 'cancelled' && styles.activeFilterTab,
-            { borderColor: theme.border, backgroundColor: selectedFilter === 'cancelled' ? COLORS.primary.light : theme.card }
-          ]}
-          onPress={() => setSelectedFilter('cancelled')}
-        >
-          <Text style={[
-            styles.filterTabText,
-            selectedFilter === 'cancelled' && styles.activeFilterTabText,
-            { color: selectedFilter === 'cancelled' ? COLORS.white : theme.text }
-          ]}>
-            Cancelled
-          </Text>
-        </TouchableOpacity>
-      </View>
+        <View style={[styles.filterTabs, { borderBottomColor: theme.border }]}>
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              selectedFilter === 'ALL' && styles.activeFilterTab,
+              { borderColor: theme.border, backgroundColor: selectedFilter === 'ALL' ? COLORS.primary.light : theme.card }
+            ]}
+            onPress={() => setSelectedFilter('ALL')}
+          >
+            <Text style={[
+              styles.filterTabText,
+              selectedFilter === 'ALL' && styles.activeFilterTabText,
+              { color: selectedFilter === 'ALL' ? COLORS.white : theme.text }
+            ]}>
+              All
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              selectedFilter === 'pending' && styles.activeFilterTab,
+              { borderColor: theme.border, backgroundColor: selectedFilter === 'pending' ? COLORS.primary.light : theme.card }
+            ]}
+            onPress={() => setSelectedFilter('pending')}
+          >
+            <Text style={[
+              styles.filterTabText,
+              selectedFilter === 'pending' && styles.activeFilterTabText,
+              { color: selectedFilter === 'pending' ? COLORS.white : theme.text }
+            ]}>
+              Pending
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              selectedFilter === 'in progress' && styles.activeFilterTab,
+              { borderColor: theme.border, backgroundColor: selectedFilter === 'in progress' ? COLORS.primary.light : theme.card }
+            ]}
+            onPress={() => setSelectedFilter('in progress')}
+          >
+            <Text style={[
+              styles.filterTabText,
+              selectedFilter === 'in progress' && styles.activeFilterTabText,
+              { color: selectedFilter === 'in progress' ? COLORS.white : theme.text }
+            ]}>
+              In Progress
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              selectedFilter === 'completed' && styles.activeFilterTab,
+              { borderColor: theme.border, backgroundColor: selectedFilter === 'completed' ? COLORS.primary.light : theme.card }
+            ]}
+            onPress={() => setSelectedFilter('completed')}
+          >
+            <Text style={[
+              styles.filterTabText,
+              selectedFilter === 'completed' && styles.activeFilterTabText,
+              { color: selectedFilter === 'completed' ? COLORS.white : theme.text }
+            ]}>
+              Completed
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              selectedFilter === 'cancelled' && styles.activeFilterTab,
+              { borderColor: theme.border, backgroundColor: selectedFilter === 'cancelled' ? COLORS.primary.light : theme.card }
+            ]}
+            onPress={() => setSelectedFilter('cancelled')}
+          >
+            <Text style={[
+              styles.filterTabText,
+              selectedFilter === 'cancelled' && styles.activeFilterTabText,
+              { color: selectedFilter === 'cancelled' ? COLORS.white : theme.text }
+            ]}>
+              Cancelled
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      <FlatList
-        data={filteredTasks}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-      />
+        <FlatList
+          data={filteredTasks}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+        />
 
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: COLORS.primary.light }]}
-        onPress={() => setIsCreateModalVisible(true)}
-      >
-        <PlusCircle size={24} color={COLORS.white} />
-      </TouchableOpacity>
+        {/* Floating Action Button */}
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: COLORS.primary.light }]}
+          onPress={() => setIsCreateModalVisible(true)}
+        >
+          <PlusCircle size={24} color={COLORS.white} />
+        </TouchableOpacity>
 
-      <CreateTaskModal
-        visible={isCreateModalVisible}
-        onClose={() => setIsCreateModalVisible(false)}
-        onTaskCreated={fetchTasks}
-      />
-    </SafeAreaView>
+        <CreateTaskModal
+          visible={isCreateModalVisible}
+          onClose={() => setIsCreateModalVisible(false)}
+          onTaskCreated={fetchTasks}
+        />
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 } 

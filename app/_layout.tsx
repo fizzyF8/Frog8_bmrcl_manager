@@ -6,6 +6,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@exp
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { ThemeProvider } from '@/context/theme';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -47,11 +48,13 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RootLayoutNav />
-        <StatusBar style="auto" />
-      </AuthProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <RootLayoutNav />
+          <StatusBar style="auto" />
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

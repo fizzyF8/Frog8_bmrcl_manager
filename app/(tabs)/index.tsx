@@ -11,6 +11,7 @@ import api, { TVMsResponse, TVM, tvmApi } from '@/utils/api';
 import { useTheme } from '@/context/theme';
 import { getTimeElapsedString } from '@/utils/time';
 import { router, useRouter } from 'expo-router';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
 // Mock data
 const tvmStats = {
@@ -387,34 +388,36 @@ export default function Dashboard() {
 
   if (!user) {
     return (
-      <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={[styles.header, { backgroundColor: theme.card }]}>
-          <View>
-            <Text style={[styles.greeting, { color: theme.secondaryText }]}>Welcome back,</Text>
-            <Text style={[styles.name, { color: theme.text }]}>User</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
-            <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notifications')}>
-              <Bell size={24} color={theme.text} />
-            </TouchableOpacity>
-          </View>
-        </View>
-        <View style={styles.loadingContainer}>
-          {loading ? (
-            <ActivityIndicator size="large" color={COLORS.primary.light} />
-          ) : error ? (
-            <View style={styles.errorContainer}>
-              <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
-              <TouchableOpacity onPress={fetchDashboardData} style={styles.retryButton}>
-                <Text style={styles.retryButtonText}>Retry</Text>
+      <ErrorBoundary>
+        <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
+          <View style={[styles.header, { backgroundColor: theme.card }]}>
+            <View>
+              <Text style={[styles.greeting, { color: theme.secondaryText }]}>Welcome back,</Text>
+              <Text style={[styles.name, { color: theme.text }]}>User</Text>
+            </View>
+            <View style={styles.headerRight}>
+              <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
+              <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notifications')}>
+                <Bell size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
-          ) : (
-            <Text style={{ color: theme.text }}>Loading dashboard...</Text>
-          )}
-        </View>
-      </SafeAreaView>
+          </View>
+          <View style={styles.loadingContainer}>
+            {loading ? (
+              <ActivityIndicator size="large" color={COLORS.primary.light} />
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+                <TouchableOpacity onPress={fetchDashboardData} style={styles.retryButton}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={{ color: theme.text }}>Loading dashboard...</Text>
+            )}
+          </View>
+        </SafeAreaView>
+      </ErrorBoundary>
     );
   }
 
@@ -424,163 +427,165 @@ export default function Dashboard() {
   });
 
   return (
-    <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <View>
-          <Text style={[styles.greeting, { color: theme.secondaryText }]}>{getTimeBasedGreeting()},</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={[styles.name, { color: theme.text }]}>{user?.name || 'User'}</Text>
-            <TouchableOpacity onPress={() => router.push('/profileScreen')}>
-              <User size={24} color={theme.text} style={{ marginLeft: SPACING.xs }} />
+    <ErrorBoundary>
+      <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+          <View>
+            <Text style={[styles.greeting, { color: theme.secondaryText }]}>{getTimeBasedGreeting()},</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[styles.name, { color: theme.text }]}>{user?.name || 'User'}</Text>
+              <TouchableOpacity onPress={() => router.push('/profileScreen')}>
+                <User size={24} color={theme.text} style={{ marginLeft: SPACING.xs }} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.headerRight}>
+            <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
+            <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notifications')}>
+              <Bell size={24} color={theme.text} />
+              {alerts.length > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationCount}>{alerts.length}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.headerRight}>
-          <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
-          <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notifications')}>
-            <Bell size={24} color={theme.text} />
-            {alerts.length > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationCount}>{alerts.length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary.light} />
-        </View>
-      ) : (
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[COLORS.primary.light]}
-              tintColor={COLORS.primary.light}
-            />
-          }
-        >
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>TVM Status</Text>
-              <TouchableOpacity 
-                style={styles.viewAllButton}
-                onPress={() => router.push('/tvmScreen')}
-              >
-                <Text style={[styles.viewAllText, { color: COLORS.primary.light }]}>View All</Text>
-                <ChevronRight size={16} color={COLORS.primary.light} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.statsContainer}>
-              <Card variant="elevated" style={cardStyle(styles.statCard)}>
-                <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.operational}</Text>
-                <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
-                <StatusBadge label="Operational" type="success" size="sm" />
-              </Card>
-              <Card variant="elevated" style={cardStyle(styles.statCard)}>
-                <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.maintenance}</Text>
-                <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
-                <StatusBadge label="Maintenance" type="warning" size="sm" />
-              </Card>
-              <Card variant="elevated" style={cardStyle(styles.statCard)}>
-                <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.error}</Text>
-                <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
-                <StatusBadge label="Critical" type="error" size="sm" />
-              </Card>
-              <Card variant="elevated" style={cardStyle(styles.statCard)}>
-                <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.offline}</Text>
-                <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
-                <StatusBadge label="Offline" type="default" size="sm" />
-              </Card>
-            </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary.light} />
           </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Tasks Overview</Text>
-              <TouchableOpacity style={styles.viewAllButton} onPress={() => router.push('/tasksScreen')}>
-                <Text style={[styles.viewAllText, { color: COLORS.primary.light }]}>View All</Text>
-                <ChevronRight size={16} color={COLORS.primary.light} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.taskStatsContainer}>
-              <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
-                <Text style={[styles.taskStatValue, { color: theme.text }]}>{tasks.pending}</Text>
-                <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Pending</Text>
-              </Card>
-              <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
-                <Text style={[styles.taskStatValue, { color: theme.text }]}>{tasks.inProgress}</Text>
-                <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Progress</Text>
-              </Card>
-              <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
-                <Text style={[styles.taskStatValue, { color: theme.text }]}>{tasks.completed}</Text>
-                <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Complete</Text>
-              </Card>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Performance Metrics</Text>
-            </View>
-            <Card variant="elevated" style={cardStyle(styles.performanceCard)}>
-              {performanceMetrics.map((metric, index) => (
-                <View
-                  key={metric.label}
-                  style={[
-                    styles.performanceItem,
-                    index < performanceMetrics.length - 1 && { ...styles.borderBottom, borderBottomColor: theme.border },
-                  ]}
+        ) : (
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[COLORS.primary.light]}
+                tintColor={COLORS.primary.light}
+              />
+            }
+          >
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>TVM Status</Text>
+                <TouchableOpacity 
+                  style={styles.viewAllButton}
+                  onPress={() => router.push('/tvmScreen')}
                 >
-                  <Text style={[styles.performanceLabel, { color: theme.text }]}>{metric.label}</Text>
-                  <View style={styles.performanceValueContainer}>
-                    <Text style={[styles.performanceValue, { color: theme.text }]}>{metric.value}</Text>
-                    <View style={[styles.changeContainer, { backgroundColor: metric.up ? COLORS.success.light + '20' : COLORS.error.light + '20' }]}>
-                      {metric.up ? (
-                        <ArrowUp size={12} color={COLORS.success.light} />
-                      ) : (
-                        <ArrowDown size={12} color={COLORS.error.light} />
-                      )}
-                      <Text style={[styles.changeText, { color: metric.up ? COLORS.success.light : COLORS.error.light }]}>
-                        {metric.change}%
-                      </Text>
+                  <Text style={[styles.viewAllText, { color: COLORS.primary.light }]}>View All</Text>
+                  <ChevronRight size={16} color={COLORS.primary.light} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.statsContainer}>
+                <Card variant="elevated" style={cardStyle(styles.statCard)}>
+                  <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.operational}</Text>
+                  <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
+                  <StatusBadge label="Operational" type="success" size="sm" />
+                </Card>
+                <Card variant="elevated" style={cardStyle(styles.statCard)}>
+                  <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.maintenance}</Text>
+                  <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
+                  <StatusBadge label="Maintenance" type="warning" size="sm" />
+                </Card>
+                <Card variant="elevated" style={cardStyle(styles.statCard)}>
+                  <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.error}</Text>
+                  <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
+                  <StatusBadge label="Critical" type="error" size="sm" />
+                </Card>
+                <Card variant="elevated" style={cardStyle(styles.statCard)}>
+                  <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.offline}</Text>
+                  <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
+                  <StatusBadge label="Offline" type="default" size="sm" />
+                </Card>
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Tasks Overview</Text>
+                <TouchableOpacity style={styles.viewAllButton} onPress={() => router.push('/tasksScreen')}>
+                  <Text style={[styles.viewAllText, { color: COLORS.primary.light }]}>View All</Text>
+                  <ChevronRight size={16} color={COLORS.primary.light} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.taskStatsContainer}>
+                <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
+                  <Text style={[styles.taskStatValue, { color: theme.text }]}>{tasks.pending}</Text>
+                  <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Pending</Text>
+                </Card>
+                <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
+                  <Text style={[styles.taskStatValue, { color: theme.text }]}>{tasks.inProgress}</Text>
+                  <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Progress</Text>
+                </Card>
+                <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
+                  <Text style={[styles.taskStatValue, { color: theme.text }]}>{tasks.completed}</Text>
+                  <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Complete</Text>
+                </Card>
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Performance Metrics</Text>
+              </View>
+              <Card variant="elevated" style={cardStyle(styles.performanceCard)}>
+                {performanceMetrics.map((metric, index) => (
+                  <View
+                    key={metric.label}
+                    style={[
+                      styles.performanceItem,
+                      index < performanceMetrics.length - 1 && { ...styles.borderBottom, borderBottomColor: theme.border },
+                    ]}
+                  >
+                    <Text style={[styles.performanceLabel, { color: theme.text }]}>{metric.label}</Text>
+                    <View style={styles.performanceValueContainer}>
+                      <Text style={[styles.performanceValue, { color: theme.text }]}>{metric.value}</Text>
+                      <View style={[styles.changeContainer, { backgroundColor: metric.up ? COLORS.success.light + '20' : COLORS.error.light + '20' }]}>
+                        {metric.up ? (
+                          <ArrowUp size={12} color={COLORS.success.light} />
+                        ) : (
+                          <ArrowDown size={12} color={COLORS.error.light} />
+                        )}
+                        <Text style={[styles.changeText, { color: metric.up ? COLORS.success.light : COLORS.error.light }]}>
+                          {metric.change}%
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-              ))}
-            </Card>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Alerts</Text>
-              <TouchableOpacity style={styles.viewAllButton}>
-                <Text style={[styles.viewAllText, { color: COLORS.primary.light }]}>View All</Text>
-                <ChevronRight size={16} color={COLORS.primary.light} />
-              </TouchableOpacity>
-            </View>
-            {alerts.map((alert) => (
-              <Card key={alert.id} variant="elevated" style={cardStyle(styles.alertCard)}>
-                <View style={styles.alertHeader}>
-                  <Text style={[styles.alertTitle, { color: theme.text }]}>{alert.title}</Text>
-                  <StatusBadge
-                    label={alert.priority}
-                    type={alert.priority === 'HIGH' ? 'error' : alert.priority === 'MEDIUM' ? 'warning' : 'info'}
-                    size="sm"
-                  />
-                </View>
-                <Text style={[styles.alertDescription, { color: theme.secondaryText }]}>{alert.description}</Text>
-                <Text style={[styles.alertTime, { color: theme.secondaryText }]}>{alert.time}</Text>
+                ))}
               </Card>
-            ))}
-          </View>
-        </ScrollView>
-      )}
-    </SafeAreaView>
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Alerts</Text>
+                <TouchableOpacity style={styles.viewAllButton}>
+                  <Text style={[styles.viewAllText, { color: COLORS.primary.light }]}>View All</Text>
+                  <ChevronRight size={16} color={COLORS.primary.light} />
+                </TouchableOpacity>
+              </View>
+              {alerts.map((alert) => (
+                <Card key={alert.id} variant="elevated" style={cardStyle(styles.alertCard)}>
+                  <View style={styles.alertHeader}>
+                    <Text style={[styles.alertTitle, { color: theme.text }]}>{alert.title}</Text>
+                    <StatusBadge
+                      label={alert.priority}
+                      type={alert.priority === 'HIGH' ? 'error' : alert.priority === 'MEDIUM' ? 'warning' : 'info'}
+                      size="sm"
+                    />
+                  </View>
+                  <Text style={[styles.alertDescription, { color: theme.secondaryText }]}>{alert.description}</Text>
+                  <Text style={[styles.alertTime, { color: theme.secondaryText }]}>{alert.time}</Text>
+                </Card>
+              ))}
+            </View>
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 }

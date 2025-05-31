@@ -18,6 +18,7 @@ import { attendanceApi } from '@/utils/api';
 import { useAuth } from '@/context/auth';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
 const OPERATORS = [
   { id: 1, name: 'Akash', image: 'https://ui-avatars.com/api/?name=Akash&background=2ECC71&color=fff' },
@@ -280,32 +281,34 @@ export default function LeaderboardScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Sales Leaderboard</Text>
-        {lastSyncTime && (
-          <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime)} />
-        )}
-      </View>
-      
-      <PeriodSelector />
-      
-      <ScrollView 
-        style={styles.leaderboardContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[COLORS.primary.light]}
-            tintColor={COLORS.primary.light}
-          />
-        }
-      >
-        {salesData[selectedPeriod].map((item) => (
-          <LeaderboardItem key={item.id} item={item} />
-        ))}
-      </ScrollView>
-    </SafeAreaView>
+    <ErrorBoundary>
+      <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+          <Text style={[styles.title, { color: theme.text }]}>Sales Leaderboard</Text>
+          {lastSyncTime && (
+            <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime)} />
+          )}
+        </View>
+        
+        <PeriodSelector />
+        
+        <ScrollView 
+          style={styles.leaderboardContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.primary.light]}
+              tintColor={COLORS.primary.light}
+            />
+          }
+        >
+          {salesData[selectedPeriod].map((item) => (
+            <LeaderboardItem key={item.id} item={item} />
+          ))}
+        </ScrollView>
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 }
 
