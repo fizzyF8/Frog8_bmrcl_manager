@@ -423,7 +423,12 @@ export default function AttendanceScreen() {
   const handleCheckIn = async () => {
     try {
       setCheckingIn(true);
-      const coords = await getLocation();
+      
+      // Get location with lower accuracy for faster response
+      const location = await Location.getCurrentPositionAsync({ 
+        accuracy: Location.Accuracy.Balanced // Changed from High to Balanced for faster response
+      });
+      const coords = location.coords;
 
       // Validate location
       if (!validateLocation(coords.latitude, coords.longitude)) {
@@ -434,65 +439,6 @@ export default function AttendanceScreen() {
       // Ensure shiftInfo is available
       if (!shiftInfo || shiftInfo.id === undefined) {
         Alert.alert('Error', 'No active shift information found. Please refresh or contact support.');
-        return;
-      }
-
-      // Validate shift time
-      const currentTime = new Date();
-      const shiftStartTime = new Date(`${currentTime.toISOString().split('T')[0]}T${shiftInfo.startTime}:00`);
-      const shiftEndTime = new Date(`${currentTime.toISOString().split('T')[0]}T${shiftInfo.endTime}:00`);
-
-      if (currentTime < shiftStartTime) {
-        Alert.alert(
-          'Early Check-in',
-          `Your shift starts at ${shiftInfo.startTime}. Do you want to check in early?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Check In Early',
-              onPress: async () => {
-                try {
-                  await attendanceApi.checkInAttendance({
-                    user_shift_assignment_id: shiftInfo.id,
-                    check_in_latitude: coords.latitude.toString(),
-                    check_in_longitude: coords.longitude.toString(),
-                  });
-                  Alert.alert('Success', 'Checked in successfully!');
-                  fetchAttendance();
-                } catch (err: any) {
-                  Alert.alert('Check In Failed', err.message || 'Unable to check in.');
-                }
-              }
-            }
-          ]
-        );
-        return;
-      }
-
-      if (currentTime > shiftEndTime) {
-        Alert.alert(
-          'Late Check-in',
-          `Your shift ended at ${shiftInfo.endTime}. Do you want to check in late?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Check In Late',
-              onPress: async () => {
-                try {
-                  await attendanceApi.checkInAttendance({
-                    user_shift_assignment_id: shiftInfo.id,
-                    check_in_latitude: coords.latitude.toString(),
-                    check_in_longitude: coords.longitude.toString(),
-                  });
-                  Alert.alert('Success', 'Checked in successfully!');
-                  fetchAttendance();
-                } catch (err: any) {
-                  Alert.alert('Check In Failed', err.message || 'Unable to check in.');
-                }
-              }
-            }
-          ]
-        );
         return;
       }
 
@@ -523,7 +469,12 @@ export default function AttendanceScreen() {
         return;
       }
 
-      const distance = calculateDistance(coords.latitude, coords.longitude, stationCoords.latitude, stationCoords.longitude);
+      // Calculate distance using a simpler formula for faster computation
+      const distance = Math.sqrt(
+        Math.pow(coords.latitude - stationCoords.latitude, 2) +
+        Math.pow(coords.longitude - stationCoords.longitude, 2)
+      ) * 111000; // Rough conversion to meters (1 degree ≈ 111km)
+
       const distanceInMeters = Math.round(distance);
       const distanceText = distanceInMeters < 1000
         ? `${distanceInMeters} meters`
@@ -543,6 +494,7 @@ export default function AttendanceScreen() {
                     user_shift_assignment_id: shiftInfo.id,
                     check_in_latitude: coords.latitude.toString(),
                     check_in_longitude: coords.longitude.toString(),
+                    force_mark: true
                   });
                   Alert.alert('Success', 'Shift force marked and checked in!');
                   fetchAttendance();

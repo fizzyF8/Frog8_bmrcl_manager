@@ -155,6 +155,7 @@ export interface CheckInRequest {
   user_shift_assignment_id: number;
   check_in_latitude: string;
   check_in_longitude: string;
+  force_mark?: boolean;
 }
 
 export interface CheckOutRequest {
