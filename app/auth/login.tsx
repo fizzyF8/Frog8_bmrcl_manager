@@ -162,13 +162,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl * 2,
-    paddingBottom: SPACING.xl,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.xs,
+    paddingBottom: SPACING.xs,
   },
   logoContainer: {
     alignItems: 'center',
-    // marginBottom: SPACING.xl * 2,
+    marginBottom: SPACING.xs,
   },
   logoBackground: {
     width: 80,
@@ -250,6 +250,7 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: 'auto',
     alignItems: 'center',
+    paddingBottom: SPACING.md,
   },
   footerText: {
     fontSize: FONT_SIZES.xs,

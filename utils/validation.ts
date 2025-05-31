@@ -18,9 +18,14 @@ export const validateEmail = (email: string): boolean => {
 
 // Password validation
 export const validatePassword = (password: string): boolean => {
-  // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
-  return passwordRegex.test(password);
+  // At least 8 characters, 1 uppercase, 1 lowercase, 1 number, and allow special characters
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$/;
+  // Simpler version allowing any characters after meeting minimum requirements:
+  const simplerRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+   // Let's use the simpler regex that just checks for the presence of required character types and minimum length
+   // and allows any characters after that.
+  return simplerRegex.test(password);
 };
 
 // Required field validation

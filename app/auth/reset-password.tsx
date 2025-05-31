@@ -3,11 +3,36 @@ import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Ale
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, CheckCircle2, Circle } from 'lucide-react-native';
 import { authApi } from '@/utils/api';
 import { router } from 'expo-router';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { validateEmail, validatePassword, validateRequired, ValidationError } from '@/utils/validation';
+
+// Password requirement interface
+interface PasswordRequirement {
+  label: string;
+  validator: (password: string) => boolean;
+}
+
+const PASSWORD_REQUIREMENTS: PasswordRequirement[] = [
+  {
+    label: 'At least 8 characters',
+    validator: (password) => password.length >= 8
+  },
+  {
+    label: 'At least one uppercase letter',
+    validator: (password) => /[A-Z]/.test(password)
+  },
+  {
+    label: 'At least one lowercase letter',
+    validator: (password) => /[a-z]/.test(password)
+  },
+  {
+    label: 'At least one number',
+    validator: (password) => /[0-9]/.test(password)
+  }
+];
 
 export default function ResetPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -32,7 +57,7 @@ export default function ResetPasswordScreen() {
     } else if (!validatePassword(newPassword)) {
       newErrors.push({ 
         field: 'newPassword', 
-        message: 'Password must be at least 8 characters long and contain uppercase, lowercase, and numbers' 
+        message: 'Password does not meet all requirements' 
       });
     }
 
@@ -78,6 +103,34 @@ export default function ResetPasswordScreen() {
     return errors.find(error => error.field === field)?.message;
   };
 
+  const renderPasswordRequirements = () => {
+    return (
+      <View style={styles.passwordRequirements}>
+        <Text style={[styles.requirementsTitle, { color: COLORS.neutral[600] }]}>
+          Password Requirements:
+        </Text>
+        {PASSWORD_REQUIREMENTS.map((requirement, index) => {
+          const isMet = requirement.validator(newPassword);
+          return (
+            <View key={index} style={styles.requirementItem}>
+              {isMet ? (
+                <CheckCircle2 size={16} color={COLORS.success.light} />
+              ) : (
+                <Circle size={16} color={COLORS.neutral[400]} />
+              )}
+              <Text style={[
+                styles.requirementText,
+                { color: isMet ? COLORS.success.light : COLORS.neutral[600] }
+              ]}>
+                {requirement.label}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
     <ErrorBoundary>
       <KeyboardAvoidingView
@@ -97,7 +150,7 @@ export default function ResetPasswordScreen() {
 
           <View style={styles.formContainer}>
             <Text style={styles.title}>Reset Password</Text>
-            <Text style={styles.subtitle}>Enter your email and new password to reset your account</Text>
+            {/* <Text style={styles.subtitle}>Enter your email and new password to reset your account</Text> */}
             
             {errors.find(error => error.field === 'general') && (
               <Text style={styles.errorText}>{errors.find(error => error.field === 'general')?.message}</Text>
@@ -138,6 +191,8 @@ export default function ResetPasswordScreen() {
               }
               error={getFieldError('newPassword')}
             />
+
+            {renderPasswordRequirements()}
 
             <Input
               label="Confirm Password"
@@ -195,13 +250,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl * 2,
-    paddingBottom: SPACING.xl,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.xs,
+    paddingBottom: SPACING.xs,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.xs,
   },
   logoImage: {
     width: 200,
@@ -253,11 +308,33 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xs,
     color: COLORS.neutral[600],
     fontFamily: FONTS.regular,
-    marginBottom: SPACING.xs,
   },
   versionText: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.neutral[500],
     fontFamily: FONTS.regular,
+    marginBottom: SPACING.md,
+  },
+  passwordRequirements: {
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.md,
+    padding: SPACING.sm,
+    backgroundColor: COLORS.neutral[100],
+    borderRadius: BORDER_RADIUS.md,
+  },
+  requirementsTitle: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZES.sm,
+    marginBottom: SPACING.xs,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.xs,
+  },
+  requirementText: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+    marginLeft: SPACING.xs,
   },
 }); 
