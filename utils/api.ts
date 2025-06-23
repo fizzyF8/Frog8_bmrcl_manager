@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const BASE_URL = 'https://demo.ctrmv.com/veriphy/public/api/v1';
 
@@ -407,8 +408,34 @@ export const attendanceApi = {
 
 export const taskApi = {
   getAllTasks: async (): Promise<TasksResponse> => {
-    const response = await api.get<TasksResponse>('/tasks/tasklist');
-    return response.data;
+    const response = await api.get('/tasks/list');
+    const data = response.data;
+    return {
+      status: data.status,
+      message: data.message,
+      taskdata: data.taskData || data.taskdata || [],
+    };
+  },
+
+  getMyTasks: async (): Promise<TasksResponse> => {
+    try {
+      console.log('Fetching my tasks...');
+      const response = await api.get('/tasks/tasklist');
+      console.log('My tasks API response:', response.data);
+      
+      // Handle both taskData and taskdata keys and ensure we have an array
+      const taskData = response.data.taskData || response.data.taskdata || [];
+      console.log('Processed task data:', taskData);
+      
+      return {
+        status: response.data.status,
+        message: response.data.message,
+        taskdata: taskData,
+      };
+    } catch (error) {
+      console.error('Error fetching my tasks:', error);
+      throw error;
+    }
   },
 
   startTask: async (taskId: number): Promise<{ status: string; message: string }> => {
@@ -416,9 +443,40 @@ export const taskApi = {
     return response.data;
   },
 
-  completeTask: async (taskId: number): Promise<{ status: string; message: string }> => {
-    const response = await api.post<{ status: string; message: string }>(`/tasks/complete_task/${taskId}`);
-    return response.data;
+  completeTask: async (taskId: number, taskImage?: string): Promise<{ status: string; message: string }> => {
+    try {
+      let data;
+      let headers: Record<string, string> = {
+        'Accept': 'application/json',
+      };
+
+      if (taskImage) {
+        // When image is provided, send as FormData
+        data = new FormData();
+        data.append('task_image', {
+          uri: Platform.OS === 'ios' ? taskImage.replace('file://', '') : taskImage,
+          type: 'image/jpeg',
+          name: 'task_image.jpg',
+        } as any);
+        headers['Content-Type'] = 'multipart/form-data';
+      } else {
+        // When no image is provided, send empty object with JSON content type
+        data = {};
+        headers['Content-Type'] = 'application/json';
+      }
+
+      console.log('Completing task with data:', data);
+
+      const response = await api.post<{ status: string; message: string }>(
+        `/tasks/complete_task/${taskId}`,
+        data,
+        { headers }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('API Error details:', error.response?.data);
+      throw error;
+    }
   },
 
   createTask: async (taskData: {
@@ -430,6 +488,86 @@ export const taskApi = {
     device_id: number;
   }): Promise<{ status: string; message: string }> => {
     const response = await api.post<{ status: string; message: string }>('/tasks/store', taskData);
+    return response.data;
+  },
+
+  updateTask: async (id: number, taskData: {
+    title: string;
+    description: string;
+    assign_user_id: number;
+    priority: string;
+    due_datetime: string;
+    device_id: number;
+  }): Promise<{ status: string; message: string }> => {
+    const response = await api.put<{ status: string; message: string }>(`/tasks/update/${id}`, taskData);
+    return response.data;
+  },
+
+  deleteTask: async (id: number): Promise<{ status: string; message: string }> => {
+    const response = await api.delete<{ status: string; message: string }>(`/tasks/delete/${id}`);
+    return response.data;
+  },
+};
+
+export interface FAQItem {
+  id: number;
+  question: string;
+  answer: string;
+  description?: string;
+  remark?: string;
+  category?: string;
+  priority?: string;
+  status?: string;
+  added_by?: number;
+}
+
+export interface FAQResponse {
+  status: string;
+  message: string;
+  faq: FAQItem[];
+}
+
+export const faqApi = {
+  getFAQs: async (): Promise<FAQResponse> => {
+    const response = await api.get<FAQResponse>('/faqs/list');
+    return response.data;
+  },
+};
+
+export interface Note {
+  id: number;
+  user_id: number;
+  title: string;
+  content: string;
+  visibility: string;
+  noteable_type: string;
+  noteable_id: number;
+  organization_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotesResponse {
+  status: string;
+  message: string;
+  notes: Note[];
+}
+
+export const notesApi = {
+  getNotes: async (): Promise<NotesResponse> => {
+    const response = await api.get<NotesResponse>('/notes/list');
+    return response.data;
+  },
+  deleteNote: async (id: number): Promise<{ status: string; message: string }> => {
+    const response = await api.delete<{ status: string; message: string }>(`/notes/delete/${id}`);
+    return response.data;
+  },
+  addNote: async (title: string, content: string): Promise<{ status: string; message: string }> => {
+    const response = await api.post<{ status: string; message: string }>('/notes/store', { title, content });
+    return response.data;
+  },
+  updateNote: async (id: number, title: string, content: string): Promise<{ status: string; message: string }> => {
+    const response = await api.put<{ status: string; message: string }>(`/notes/update/${id}`, { title, content });
     return response.data;
   },
 };

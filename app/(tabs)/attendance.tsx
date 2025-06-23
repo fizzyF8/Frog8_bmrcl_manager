@@ -8,7 +8,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
 import SyncStatus from '@/components/ui/SyncStatus';
-import { MapPin, Clock, Calendar, ArrowRight, User, CircleCheck as CheckCircle2, CircleAlert as AlertCircle } from 'lucide-react-native';
+import { MapPin, Clock, Calendar, ArrowRight, User, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, RefreshCw } from 'lucide-react-native';
 import { AttendanceRecord } from '@/types';
 import { attendanceApi, Attendance, ShiftAttendanceResponse, Station, Gate, AssignShiftRequest, AssignShiftResponse, AssignShift } from '@/utils/api';
 import { useTheme } from '@/context/theme';
@@ -309,11 +309,39 @@ export default function AttendanceScreen() {
       setError(null);
       setSyncState('syncing');
 
+      console.log('Starting attendance fetch...'); // Debug log
+
       // Fetch both attendance and assigned shifts
-      const [attendanceResponse, assignShiftResponse] = await Promise.all([
-        attendanceApi.getShiftAttendance(), // Response with attendance and maybe today's shift
-        attendanceApi.getAssignedShifts() // Response with all assigned shifts
-      ]);
+      let attendanceResponse;
+      let assignShiftResponse;
+
+      try {
+        console.log('Fetching attendance data...'); // Debug log
+        attendanceResponse = await attendanceApi.getShiftAttendance();
+        console.log('Attendance response:', attendanceResponse); // Debug log
+      } catch (attendanceErr: any) {
+        console.error('Attendance fetch error details:', {
+          message: attendanceErr.message,
+          response: attendanceErr.response?.data,
+          status: attendanceErr.response?.status,
+          headers: attendanceErr.response?.headers
+        });
+        throw new Error(`Failed to fetch attendance: ${attendanceErr.response?.data?.message || attendanceErr.message}`);
+      }
+
+      try {
+        console.log('Fetching assigned shifts...'); // Debug log
+        assignShiftResponse = await attendanceApi.getAssignedShifts();
+        console.log('Assigned shifts response:', assignShiftResponse); // Debug log
+      } catch (shiftsErr: any) {
+        console.error('Assigned shifts fetch error details:', {
+          message: shiftsErr.message,
+          response: shiftsErr.response?.data,
+          status: shiftsErr.response?.status,
+          headers: shiftsErr.response?.headers
+        });
+        throw new Error(`Failed to fetch assigned shifts: ${shiftsErr.response?.data?.message || shiftsErr.message}`);
+      }
 
       // Handle assigned shifts fetched from /shift_assign/list
       if (assignShiftResponse.status === 'true') {
@@ -416,9 +444,25 @@ export default function AttendanceScreen() {
       setSyncState('synced');
       setLastSyncTime(new Date());
 
-    } catch (err) {
-      console.error('Attendance fetch error:', err); // Debug log
-      setError('Failed to fetch attendance. Please try again later.');
+    } catch (err: any) {
+      console.error('Attendance fetch error:', err);
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        headers: err.response?.headers
+      });
+      
+      let errorMessage = 'Failed to fetch attendance. ';
+      if (err.response?.status === 500) {
+        errorMessage += 'Server error occurred. Please try again later or contact support.';
+      } else if (err.response?.data?.message) {
+        errorMessage += err.response.data.message;
+      } else {
+        errorMessage += err.message || 'Please try again later.';
+      }
+      
+      setError(errorMessage);
       setSyncState('error');
     } finally {
       setLoading(false);
@@ -1235,6 +1279,39 @@ export default function AttendanceScreen() {
     </Modal>
   );
 
+  const renderNoAttendanceError = () => (
+    <Card variant="elevated" style={cardStyle(styles.emptyStateCard)}>
+      <View style={styles.emptyStateContainer}>
+        <AlertCircle size={48} color={theme.secondaryText} />
+        <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Shift Assigned</Text>
+        <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
+          You don't have any shifts assigned for today. You can:
+        </Text>
+        <View style={styles.emptyStateList}>
+          <Text style={[styles.emptyStateListItem, { color: theme.secondaryText }]}>• Self-assign a shift to start working</Text>
+          <Text style={[styles.emptyStateListItem, { color: theme.secondaryText }]}>• Contact your supervisor for assistance</Text>
+          <Text style={[styles.emptyStateListItem, { color: theme.secondaryText }]}>• Refresh to check for new assignments</Text>
+        </View>
+        <View style={styles.emptyStateButtons}>
+          <Button
+            title="Self Assign Shift"
+            color="primary"
+            onPress={() => setShowAssignModal(true)}
+            style={styles.emptyStateButton}
+            leftIcon={<Calendar size={20} color={COLORS.white} />}
+          />
+          <Button
+            title="Refresh"
+            color="secondary"
+            onPress={fetchAttendance}
+            style={styles.emptyStateButton}
+            leftIcon={<RefreshCw size={20} color={COLORS.white} />}
+          />
+        </View>
+      </View>
+    </Card>
+  );
+
   if (loading) {
     return (
       <ErrorBoundary>
@@ -1296,27 +1373,8 @@ export default function AttendanceScreen() {
             />
           }
         >
-          {!attendance && !attendanceHistory.length && !shiftInfo ? (
-            <Card variant="elevated" style={cardStyle(styles.emptyStateCard)}>
-              <View style={styles.emptyStateContainer}>
-                <AlertCircle size={48} color={theme.secondaryText} />
-                <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Attendance Records</Text>
-                <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
-                  There are no attendance records available. This could be because:
-                </Text>
-                <View style={styles.emptyStateList}>
-                  <Text style={[styles.emptyStateListItem, { color: theme.secondaryText }]}>• You haven't been assigned to any shifts yet</Text>
-                  <Text style={[styles.emptyStateListItem, { color: theme.secondaryText }]}>• Your attendance records have been cleared</Text>
-                  <Text style={[styles.emptyStateListItem, { color: theme.secondaryText }]}>• The system is being updated</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.retryButton}
-                  onPress={fetchAttendance}
-                >
-                  <Text style={styles.retryButtonText}>Refresh</Text>
-                </TouchableOpacity>
-              </View>
-            </Card>
+          {!attendance && !shiftInfo ? (
+            renderNoAttendanceError()
           ) : (
             <>
               <Card variant="elevated" style={cardStyle(styles.todayCard)}>
@@ -1444,7 +1502,9 @@ export default function AttendanceScreen() {
               </View>
               {attendanceHistory.length === 0 ? (
                 <View style={styles.noHistoryContainer}>
-                  <Text style={[styles.noHistoryText, { color: theme.secondaryText }]}>Welcome! No attendance history yet. Your records will appear here from tomorrow after you log today's shift.</Text>
+                  <Text style={[styles.noHistoryText, { color: theme.secondaryText }]}>
+                    Welcome! No attendance history yet. Your records will appear here after you log your shifts.
+                  </Text>
                 </View>
               ) : (
                 attendanceHistory.map((record, index) => {
@@ -1699,35 +1759,36 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
   },
   emptyStateContainer: {
+    padding: SPACING.lg,
     alignItems: 'center',
   },
   emptyStateTitle: {
+    fontSize: FONT_SIZES.xl,
     fontFamily: FONTS.bold,
-    fontSize: FONT_SIZES.lg,
     marginTop: SPACING.md,
     marginBottom: SPACING.sm,
   },
   emptyStateText: {
-    fontFamily: FONTS.regular,
     fontSize: FONT_SIZES.md,
+    fontFamily: FONTS.regular,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
   emptyStateList: {
+    width: '100%',
     marginBottom: SPACING.lg,
   },
   emptyStateListItem: {
-    fontFamily: FONTS.regular,
     fontSize: FONT_SIZES.md,
+    fontFamily: FONTS.regular,
     marginBottom: SPACING.xs,
   },
-  noHistoryContainer: {
-    padding: SPACING.md,
+  emptyStateButtons: {
+    width: '100%',
+    gap: SPACING.sm,
   },
-  noHistoryText: {
-    fontFamily: FONTS.regular,
-    fontSize: FONT_SIZES.md,
-    textAlign: 'center',
+  emptyStateButton: {
+    width: '100%',
   },
   lastRefreshContainer: {
     alignItems: 'center',
@@ -2022,5 +2083,13 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     marginTop: 0,
+  },
+  noHistoryContainer: {
+    padding: SPACING.md,
+  },
+  noHistoryText: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.md,
+    textAlign: 'center',
   },
 });

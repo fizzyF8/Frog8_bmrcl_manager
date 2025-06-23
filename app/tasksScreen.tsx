@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
-import { Clock, CircleCheck as CheckCircle, Calendar, Ticket, User, CirclePlus as PlusCircle, ArrowLeft } from 'lucide-react-native';
+import { Clock, CircleCheck as CheckCircle, Calendar, Ticket, User, CirclePlus as PlusCircle, ArrowLeft, Camera, Image as ImageIcon } from 'lucide-react-native';
 import { useTheme } from '@/context/theme';
 import { useRouter } from 'expo-router';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
 import { taskApi, Task, tvmApi, TVM, authApi, UserProfile } from '@/utils/api';
-import CreateTaskModal from '@/components/task/CreateTaskModal';
+import TaskModal from '@/components/task/CreateTaskModal';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import { useAuth } from '@/context/auth';
+import * as ImagePicker from 'expo-image-picker';
 
 const styles = StyleSheet.create({
   container: {
@@ -127,11 +129,28 @@ const styles = StyleSheet.create({
     shadowRadius: 4.65,
     elevation: 8,
   },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  messageText: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZES.lg,
+    textAlign: 'center',
+  },
 });
+
+const FILTERS = [
+  { key: 'ALL', label: 'All Tasks' },
+  { key: 'MY', label: 'My Tasks' },
+];
 
 export default function TasksScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [syncState, setSyncState] = useState<'offline' | 'syncing' | 'synced' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
@@ -140,58 +159,103 @@ export default function TasksScreen() {
   const [devices, setDevices] = useState<{ [key: number]: TVM }>({});
   const [users, setUsers] = useState<{ [key: number]: UserProfile }>({});
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [selectedFilter]);
 
   const fetchTasks = async () => {
     try {
       setIsLoading(true);
       setSyncState('syncing');
-      const response = await taskApi.getAllTasks();
-      setTasks(response.taskdata);
+      let response;
       
-      // Fetch device details for all tasks
-      const deviceIds = [...new Set(response.taskdata.map(task => task.device_id))];
-      const devicePromises = deviceIds.map(id => tvmApi.getTVM(id));
-      const deviceResponses = await Promise.all(devicePromises);
-      const deviceMap = deviceResponses.reduce((acc, response) => {
-        if (response.status === 'true' && response.device) {
-          acc[response.device.id] = response.device;
-        }
-        return acc;
-      }, {} as { [key: number]: TVM });
-      setDevices(deviceMap);
+      console.log('Fetching tasks with filter:', selectedFilter);
+      if (selectedFilter === 'ALL') {
+        response = await taskApi.getAllTasks();
+      } else {
+        response = await taskApi.getMyTasks();
+      }
+      console.log('Tasks API Response:', response);
 
-      // Fetch user profiles for all tasks
-      const userIds = [...new Set([
-        ...response.taskdata.map(task => task.assign_user_id),
-        ...response.taskdata.map(task => task.assign_by)
-      ])];
-      const userPromises = userIds.map(id => authApi.getProfile());
-      const userResponses = await Promise.all(userPromises);
-      const userMap = userResponses.reduce((acc, response) => {
-        if (response.status === 'true' && response.user) {
-          acc[response.user.id] = response.user;
+      if (response.status !== 'true') {
+        throw new Error(response.message || 'Failed to fetch tasks');
+      }
+
+      // Use the response directly without additional filtering
+      const taskData = response.taskdata || [];
+      console.log(`Found ${taskData.length} tasks`);
+      
+      if (taskData.length === 0) {
+        console.log('No tasks found for the current filter');
+        if (selectedFilter === 'MY') {
+          console.log('Current user ID:', user?.id);
         }
-        return acc;
-      }, {} as { [key: number]: UserProfile });
-      setUsers(userMap);
+      }
+
+      setTasks(taskData);
+      
+      if (taskData.length > 0) {
+        // Fetch device details for all tasks
+        const deviceIds = [...new Set(taskData.map(task => task.device_id))];
+        console.log('Fetching details for devices:', deviceIds);
+        const devicePromises = deviceIds.map(id => tvmApi.getTVM(id));
+        const deviceResponses = await Promise.all(devicePromises);
+        const deviceMap = deviceResponses.reduce((acc, response) => {
+          if (response.status === 'true' && response.device) {
+            acc[response.device.id] = response.device;
+          }
+          return acc;
+        }, {} as { [key: number]: TVM });
+        console.log('Device map:', deviceMap);
+        setDevices(deviceMap);
+
+        // Fetch user profiles for all tasks
+        const userIds = [...new Set([
+          ...taskData.map(task => task.assign_user_id),
+          ...taskData.map(task => task.assign_by)
+        ])];
+        console.log('Fetching details for users:', userIds);
+        
+        // Get all users and filter to the ones we need
+        const usersResponse = await authApi.getUsers();
+        if (usersResponse.status === 'true' && usersResponse.user) {
+          const userMap = usersResponse.user
+            .filter(user => userIds.includes(user.id))
+            .reduce((acc: { [key: number]: UserProfile }, user) => {
+              acc[user.id] = {
+                ...user,
+                city_id: 0, // Default values since API doesn't provide these
+                city: '',
+                state_id: 0,
+                state: '',
+                country_id: 0,
+                country: '',
+              };
+              return acc;
+            }, {});
+          console.log('User map:', userMap);
+          setUsers(userMap);
+        }
+      }
 
       setSyncState('synced');
       setLastSyncTime(new Date());
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      setSyncState('error');
+      Alert.alert(
+        'Error',
+        'Failed to fetch tasks. Please try again.',
+        [{ text: 'OK', onPress: () => setSyncState('error') }]
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const filteredTasks = selectedFilter === 'ALL'
-    ? tasks
-    : tasks.filter(task => task.status === selectedFilter);
+  const filteredTasks = tasks;
 
   const getStatusType = (status: string): 'success' | 'warning' | 'error' | 'info' | 'default' => {
     switch (status.toLowerCase()) {
@@ -265,31 +329,112 @@ export default function TasksScreen() {
   };
 
   const handleCompleteTask = async (taskId: number) => {
+    const options = ['Take Photo', 'Choose from Gallery', 'Complete without Image', 'Cancel'];
     Alert.alert(
       'Complete Task',
-      'Are you sure you want to mark this task as completed?',
+      'Would you like to add a photo?',
       [
+        {
+          text: 'Take Photo',
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestCameraPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert('Permission needed', 'Please grant camera permissions to take photos.');
+                return;
+              }
+
+              const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8,
+              });
+
+              if (!result.canceled) {
+                completeTaskWithImage(taskId, result.assets[0].uri);
+              }
+            } catch (error) {
+              console.error('Error taking photo:', error);
+              Alert.alert('Error', 'Failed to take photo. Please try again.');
+            }
+          },
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              if (status !== 'granted') {
+                Alert.alert('Permission needed', 'Please grant media library permissions to choose photos.');
+                return;
+              }
+
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8,
+              });
+
+              if (!result.canceled) {
+                completeTaskWithImage(taskId, result.assets[0].uri);
+              }
+            } catch (error) {
+              console.error('Error picking image:', error);
+              Alert.alert('Error', 'Failed to pick image. Please try again.');
+            }
+          },
+        },
+        {
+          text: 'Complete without Image',
+          onPress: () => completeTaskWithImage(taskId),
+        },
         {
           text: 'Cancel',
           style: 'cancel',
         },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const completeTaskWithImage = async (taskId: number, imageUri?: string) => {
+    try {
+      setSyncState('syncing');
+      const response = await taskApi.completeTask(taskId, imageUri);
+      await fetchTasks(); // Refresh the task list
+      setSyncState('synced');
+      setLastSyncTime(new Date());
+      Alert.alert('Success', response.message || 'Task completed successfully');
+    } catch (error) {
+      console.error('Error completing task:', error);
+      setSyncState('error');
+      Alert.alert('Error', 'Failed to complete task. Please try again.');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: number) => {
+    Alert.alert(
+      'Delete Task',
+      'Are you sure you want to delete this task?',
+      [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Complete',
-          onPress: async () => {
+          text: 'Delete', style: 'destructive', onPress: async () => {
             try {
               setSyncState('syncing');
-              const response = await taskApi.completeTask(taskId);
-              await fetchTasks(); // Refresh the task list
+              const response = await taskApi.deleteTask(taskId);
+              await fetchTasks();
               setSyncState('synced');
               setLastSyncTime(new Date());
-              Alert.alert('Success', response.message || 'Task completed successfully');
+              Alert.alert('Success', response.message || 'Task deleted successfully');
             } catch (error) {
-              console.error('Error completing task:', error);
               setSyncState('error');
-              Alert.alert('Error', 'Failed to complete task. Please try again.');
+              Alert.alert('Error', 'Failed to delete task. Please try again.');
             }
-          },
-        },
+          }
+        }
       ],
       { cancelable: true }
     );
@@ -367,14 +512,35 @@ export default function TasksScreen() {
           )}
 
           {item.status.toLowerCase() === 'in progress' && (
-            <Button
-              title="Complete Task"
-              size="sm"
-              variant="filled"
-              color="success"
-              leftIcon={<CheckCircle size={16} color={COLORS.white} />}
-              onPress={() => handleCompleteTask(item.id)}
-            />
+            <View style={styles.taskActions}>
+              <Button
+                title="Complete Task"
+                size="sm"
+                variant="filled"
+                color="success"
+                leftIcon={<CheckCircle size={16} color={COLORS.white} />}
+                onPress={() => handleCompleteTask(item.id)}
+              />
+              <Button
+                title="Edit"
+                size="sm"
+                variant="outlined"
+                color="primary"
+                onPress={() => {
+                  setEditTask(item);
+                  setIsEditModalVisible(true);
+                }}
+                style={{ marginLeft: 8 }}
+              />
+              <Button
+                title="Delete"
+                size="sm"
+                variant="outlined"
+                color="error"
+                onPress={() => handleDeleteTask(item.id)}
+                style={{ marginLeft: 8 }}
+              />
+            </View>
           )}
         </View>
       )}
@@ -394,95 +560,51 @@ export default function TasksScreen() {
           <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
         </View>
 
-        <View style={[styles.filterTabs, { borderBottomColor: theme.border }]}>
-          <TouchableOpacity
-            style={[
-              styles.filterTab,
-              selectedFilter === 'ALL' && styles.activeFilterTab,
-              { borderColor: theme.border, backgroundColor: selectedFilter === 'ALL' ? COLORS.primary.light : theme.card }
-            ]}
-            onPress={() => setSelectedFilter('ALL')}
-          >
-            <Text style={[
-              styles.filterTabText,
-              selectedFilter === 'ALL' && styles.activeFilterTabText,
-              { color: selectedFilter === 'ALL' ? COLORS.white : theme.text }
-            ]}>
-              All
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterTab,
-              selectedFilter === 'pending' && styles.activeFilterTab,
-              { borderColor: theme.border, backgroundColor: selectedFilter === 'pending' ? COLORS.primary.light : theme.card }
-            ]}
-            onPress={() => setSelectedFilter('pending')}
-          >
-            <Text style={[
-              styles.filterTabText,
-              selectedFilter === 'pending' && styles.activeFilterTabText,
-              { color: selectedFilter === 'pending' ? COLORS.white : theme.text }
-            ]}>
-              Pending
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterTab,
-              selectedFilter === 'in progress' && styles.activeFilterTab,
-              { borderColor: theme.border, backgroundColor: selectedFilter === 'in progress' ? COLORS.primary.light : theme.card }
-            ]}
-            onPress={() => setSelectedFilter('in progress')}
-          >
-            <Text style={[
-              styles.filterTabText,
-              selectedFilter === 'in progress' && styles.activeFilterTabText,
-              { color: selectedFilter === 'in progress' ? COLORS.white : theme.text }
-            ]}>
-              In Progress
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterTab,
-              selectedFilter === 'completed' && styles.activeFilterTab,
-              { borderColor: theme.border, backgroundColor: selectedFilter === 'completed' ? COLORS.primary.light : theme.card }
-            ]}
-            onPress={() => setSelectedFilter('completed')}
-          >
-            <Text style={[
-              styles.filterTabText,
-              selectedFilter === 'completed' && styles.activeFilterTabText,
-              { color: selectedFilter === 'completed' ? COLORS.white : theme.text }
-            ]}>
-              Completed
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterTab,
-              selectedFilter === 'cancelled' && styles.activeFilterTab,
-              { borderColor: theme.border, backgroundColor: selectedFilter === 'cancelled' ? COLORS.primary.light : theme.card }
-            ]}
-            onPress={() => setSelectedFilter('cancelled')}
-          >
-            <Text style={[
-              styles.filterTabText,
-              selectedFilter === 'cancelled' && styles.activeFilterTabText,
-              { color: selectedFilter === 'cancelled' ? COLORS.white : theme.text }
-            ]}>
-              Cancelled
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.filterTabs}>
+          {FILTERS.map(filter => (
+            <TouchableOpacity
+              key={filter.key}
+              style={[
+                styles.filterTab,
+                selectedFilter === filter.key && styles.activeFilterTab,
+                { borderColor: theme.primary, backgroundColor: selectedFilter === filter.key ? theme.primary : theme.card },
+              ]}
+              onPress={() => setSelectedFilter(filter.key)}
+            >
+              <Text
+                style={[
+                  styles.filterTabText,
+                  selectedFilter === filter.key && styles.activeFilterTabText,
+                  { color: selectedFilter === filter.key ? COLORS.white : theme.text },
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        <FlatList
-          data={filteredTasks}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-        />
+        {isLoading ? (
+          <View style={styles.centerContainer}>
+            <Text style={[styles.messageText, { color: theme.text }]}>Loading tasks...</Text>
+          </View>
+        ) : tasks.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <Text style={[styles.messageText, { color: theme.text }]}>
+              {selectedFilter === 'MY' 
+                ? 'No tasks assigned to you'
+                : 'No tasks found'}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredTasks}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderItem}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
 
         {/* Floating Action Button */}
         <TouchableOpacity
@@ -492,10 +614,27 @@ export default function TasksScreen() {
           <PlusCircle size={24} color={COLORS.white} />
         </TouchableOpacity>
 
-        <CreateTaskModal
+        <TaskModal
           visible={isCreateModalVisible}
           onClose={() => setIsCreateModalVisible(false)}
-          onTaskCreated={fetchTasks}
+          onTaskCreated={() => {
+            setIsCreateModalVisible(false);
+            fetchTasks();
+          }}
+        />
+        <TaskModal
+          visible={isEditModalVisible}
+          onClose={() => {
+            setIsEditModalVisible(false);
+            setEditTask(null);
+          }}
+          onTaskUpdated={() => {
+            setIsEditModalVisible(false);
+            setEditTask(null);
+            fetchTasks();
+          }}
+          initialTask={editTask}
+          isEdit
         />
       </SafeAreaView>
     </ErrorBoundary>

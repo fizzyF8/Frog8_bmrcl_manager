@@ -1,37 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, ScrollView, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, Modal, ScrollView, TextInput, TouchableOpacity, Alert, Platform, Animated, Easing, KeyboardAvoidingView, FlatList } from 'react-native';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
 import Button from '@/components/ui/Button';
 import { X } from 'lucide-react-native';
-import { TaskPriority } from '@/types';
-import { taskApi, TVM, tvmApi, authApi, User } from '@/utils/api';
+import { Task, TVM, User, taskApi, tvmApi, authApi } from '@/utils/api';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import Card from '@/components/ui/Card';
+import Input from '@/components/ui/Input';
+import Loader from '@/components/ui/Loader';
 
-interface CreateTaskModalProps {
+interface TaskModalProps {
   visible: boolean;
   onClose: () => void;
-  onTaskCreated: () => void;
+  onTaskCreated?: () => void;
+  onTaskUpdated?: () => void;
+  initialTask?: Task | null;
+  isEdit?: boolean;
 }
 
-const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
+const TaskModal: React.FC<TaskModalProps> = ({
   visible,
   onClose,
   onTaskCreated,
+  onTaskUpdated,
+  initialTask = null,
+  isEdit = false,
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<string>('Medium');
-  const [dueDate, setDueDate] = useState(new Date());
-  const [dueTime, setDueTime] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [dueDateTime, setDueDateTime] = useState(new Date());
   const [deviceId, setDeviceId] = useState<number>(1);
   const [assignUserId, setAssignUserId] = useState<number>(6);
   const [devices, setDevices] = useState<TVM[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [titleError, setTitleError] = useState('');
+  const [dateTimeError, setDateTimeError] = useState('');
+  const [showLoader, setShowLoader] = useState(false);
+  const [modalAnim] = useState(new Animated.Value(0));
+  const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showDeviceDropdown, setShowDeviceDropdown] = useState(false);
+  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+
+  useEffect(() => {
+    if (isEdit && initialTask) {
+      setTitle(initialTask.title);
+      setDescription(initialTask.description);
+      setPriority(initialTask.priority);
+      setDeviceId(initialTask.device_id);
+      setAssignUserId(initialTask.assign_user_id);
+      setDueDateTime(new Date(initialTask.due_datetime));
+    } else if (!isEdit) {
+      setTitle('');
+      setDescription('');
+      setPriority('Medium');
+      setDueDateTime(new Date());
+      setDeviceId(1);
+      setAssignUserId(6);
+    }
+  }, [isEdit, initialTask, visible]);
 
   useEffect(() => {
     fetchDevices();
@@ -58,10 +89,13 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       
       if (response.status === 'true' && response.user) {
         console.log('Users found:', response.user.length);
-        // Filter out inactive users if needed
-        const activeUsers = response.user.filter(user => user.status === 'Active');
-        console.log('Active users:', activeUsers);
-        setUsers(activeUsers);
+        // Filter only Team Lead and Public Relations roles
+        const filteredUsers = response.user.filter((user: User) => 
+          user.status === 'Active' && 
+          (user.role === 'Team Lead' || user.role === 'Public Relations')
+        );
+        console.log('Filtered users:', filteredUsers);
+        setUsers(filteredUsers);
       } else {
         console.log('No users found in response');
         Alert.alert('Warning', 'No users available to assign tasks to.');
@@ -74,220 +108,511 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     }
   };
 
-  const onChangeDate = (event: any, selectedDate?: Date) => {
-    const currentDate = selectedDate || dueDate;
-    setShowDatePicker(Platform.OS === 'ios');
-    setDueDate(currentDate);
+  const onChangeDatetime = (event: any, selectedDateTime?: Date) => {
+    if (event.type === 'dismissed' || !selectedDateTime) {
+      setShowDateTimePicker(false);
+      return;
+    }
+    setShowDateTimePicker(false);
+    setDueDateTime(selectedDateTime);
   };
 
-  const onChangeTime = (event: any, selectedTime?: Date) => {
-    const currentTime = selectedTime || dueTime;
-    setShowTimePicker(Platform.OS === 'ios');
-    setDueTime(currentTime);
+  const showDatetimepicker = () => {
+    setShowDateTimePicker(true);
   };
 
-  const showDatepicker = () => {
-    setShowDatePicker(true);
-  };
-
-  const showTimepicker = () => {
-    setShowTimePicker(true);
-  };
-
-  const formatDate = (date: Date) => {
+  const formatDateTime = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const formatTime = (date: Date) => {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+
+  // Animate modal open/close
+  useEffect(() => {
+    if (visible) {
+      Animated.timing(modalAnim, {
+        toValue: 1,
+        duration: 250,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(modalAnim, {
+        toValue: 0,
+        duration: 200,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
+  // Validation
+  const validate = () => {
+    let valid = true;
+    if (!title.trim()) {
+      setTitleError('Title is required');
+      valid = false;
+    } else {
+      setTitleError('');
+    }
+    if (!dueDateTime || isNaN(dueDateTime.getTime())) {
+      setDateTimeError('Due date is required');
+      valid = false;
+    } else {
+      setDateTimeError('');
+    }
+    return valid;
   };
 
   const handleSubmit = async () => {
-    if (!title.trim()) {
-      Alert.alert('Error', 'Please enter a title for the task');
-      return;
-    }
-
+    if (!validate()) return;
+    setShowLoader(true);
     try {
       setIsSubmitting(true);
-      const due_datetime = `${formatDate(dueDate)} ${formatTime(dueTime)}:00`;
-
       const taskData = {
         title: title.trim(),
         description: description.trim(),
         assign_user_id: assignUserId,
         priority,
-        due_datetime,
+        due_datetime: `${formatDateTime(dueDateTime)}:00`,
         device_id: deviceId,
       };
-
-      console.log('Task data being sent:', taskData);
-
-      const response = await taskApi.createTask(taskData);
-      console.log('Create task API response:', response);
-
-      if (response.status === 'true') {
-        onTaskCreated();
-        onClose();
-        // Reset form
-        setTitle('');
-        setDescription('');
-        setPriority('Medium');
-        setDueDate(new Date());
-        setDueTime(new Date());
-        setDeviceId(1);
-        setAssignUserId(6);
+      let response;
+      if (isEdit && initialTask) {
+        response = await taskApi.updateTask(initialTask.id, taskData);
       } else {
-        Alert.alert('Error', response.message || 'Failed to create task');
+        response = await taskApi.createTask(taskData);
+      }
+      if (response.status === 'true') {
+        if (isEdit && onTaskUpdated) {
+          onTaskUpdated();
+        } else if (onTaskCreated) {
+        onTaskCreated();
+        }
+        onClose();
+      } else {
+        Alert.alert('Error', response.message || 'Failed to save task');
       }
     } catch (error) {
-      console.error('Error creating task:', error);
-      Alert.alert('Error', 'Failed to create task. Please try again.');
+      Alert.alert('Error', 'Failed to save task. Please try again.');
     } finally {
       setIsSubmitting(false);
+      setShowLoader(false);
     }
   };
+
+  // Only apply new design for add mode
+  if (!isEdit) {
+    return (
+      <Modal
+        visible={visible}
+        animationType="fade"
+        transparent
+        onRequestClose={onClose}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalContainer}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create New Task</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <X size={24} color={COLORS.neutral[500]} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Title *</Text>
+                <TextInput
+                  style={[styles.input, titleError && styles.inputError]}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="Enter task title"
+                  placeholderTextColor={COLORS.neutral[400]}
+                />
+                {titleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Description</Text>
+                <TextInput
+                  style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="Enter task description"
+                  placeholderTextColor={COLORS.neutral[400]}
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Priority</Text>
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => {
+                    setShowPriorityDropdown(!showPriorityDropdown);
+                    setShowUserDropdown(false);
+                    setShowDeviceDropdown(false);
+                  }}
+                >
+                  <Text style={styles.inputText}>{priority}</Text>
+                </TouchableOpacity>
+                {showPriorityDropdown && (
+                  <View style={styles.dropdown}>
+                    {['Low', 'Medium', 'High'].map((p) => (
+                      <TouchableOpacity
+                        key={p}
+                        style={[
+                          styles.dropdownItem,
+                          priority === p && styles.dropdownItemSelected,
+                        ]}
+                        onPress={() => {
+                          setPriority(p);
+                          setShowPriorityDropdown(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            priority === p && styles.dropdownItemTextSelected,
+                          ]}
+                        >
+                          {p}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Assign To</Text>
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => {
+                    setShowUserDropdown(!showUserDropdown);
+                    setShowPriorityDropdown(false);
+                    setShowDeviceDropdown(false);
+                  }}
+                >
+                  <Text style={styles.inputText}>
+                    {users.find((u) => u.id === assignUserId)?.name || 'Select User'}
+                  </Text>
+                </TouchableOpacity>
+                {showUserDropdown && (
+                  <View style={[styles.dropdown, { maxHeight: 180 }]}>
+                    <FlatList
+                      data={users}
+                      keyExtractor={(u) => u.id.toString()}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={[
+                            styles.dropdownItem,
+                            assignUserId === item.id && styles.dropdownItemSelected,
+                          ]}
+                          onPress={() => {
+                            setAssignUserId(item.id);
+                            setShowUserDropdown(false);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              assignUserId === item.id && styles.dropdownItemTextSelected,
+                            ]}
+                          >
+                            {item.name} ({item.role})
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Device</Text>
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => {
+                    setShowDeviceDropdown(!showDeviceDropdown);
+                    setShowPriorityDropdown(false);
+                    setShowUserDropdown(false);
+                  }}
+                >
+                  <Text style={styles.inputText}>
+                    {devices.find((d) => d.id === deviceId)?.name || 'Select Device'}
+                  </Text>
+                </TouchableOpacity>
+                {showDeviceDropdown && (
+                  <View style={[styles.dropdown, { maxHeight: 180 }]}>
+                    <FlatList
+                      data={devices}
+                      keyExtractor={(d) => d.id.toString()}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={[
+                            styles.dropdownItem,
+                            deviceId === item.id && styles.dropdownItemSelected,
+                          ]}
+                          onPress={() => {
+                            setDeviceId(item.id);
+                            setShowDeviceDropdown(false);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              deviceId === item.id && styles.dropdownItemTextSelected,
+                            ]}
+                          >
+                            {item.name} ({item.serial_number})
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Due Date & Time *</Text>
+                <TouchableOpacity onPress={showDatetimepicker} style={styles.input}>
+                  <Text style={styles.inputText}>{formatDateTime(dueDateTime)}</Text>
+                </TouchableOpacity>
+                {showDateTimePicker && (
+                  <DateTimePicker
+                    testID="dateTimePicker"
+                    value={dueDateTime}
+                    mode="datetime"
+                    display="default"
+                    onChange={onChangeDatetime}
+                  />
+                )}
+                {dateTimeError ? <Text style={styles.errorText}>{dateTimeError}</Text> : null}
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <Button
+                title="Cancel"
+                variant="outlined"
+                color="secondary"
+                onPress={onClose}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Create Task"
+                variant="filled"
+                color="primary"
+                onPress={handleSubmit}
+                loading={showLoader}
+                disabled={showLoader || !title.trim() || !dueDateTime || isNaN(dueDateTime.getTime())}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      transparent={true}
+      animationType="fade"
+      transparent
       onRequestClose={onClose}
     >
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.modalContainer}
+      >
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Create New Task</Text>
+            <Text style={styles.modalTitle}>Edit Task</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color={COLORS.neutral[700]} />
+              <X size={24} color={COLORS.neutral[500]} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.form}>
+          <ScrollView style={styles.modalBody}>
             <View style={styles.formGroup}>
               <Text style={styles.label}>Title *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, titleError && styles.inputError]}
                 value={title}
                 onChangeText={setTitle}
                 placeholder="Enter task title"
                 placeholderTextColor={COLORS.neutral[400]}
               />
+              {titleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
             </View>
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Description</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Enter task description"
                 placeholderTextColor={COLORS.neutral[400]}
                 multiline
                 numberOfLines={4}
-                textAlignVertical="top"
               />
             </View>
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Priority</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={priority}
-                  onValueChange={(value: string) => setPriority(value)}
-                  style={styles.picker}
-                >
-                  <Picker.Item label="Low" value="Low" />
-                  <Picker.Item label="Medium" value="Medium" />
-                  <Picker.Item label="High" value="High" />
-                </Picker>
+              <TouchableOpacity
+                style={styles.input}
+                onPress={() => {
+                  setShowPriorityDropdown(!showPriorityDropdown);
+                  setShowUserDropdown(false);
+                  setShowDeviceDropdown(false);
+                }}
+              >
+                <Text style={styles.inputText}>{priority}</Text>
+              </TouchableOpacity>
+              {showPriorityDropdown && (
+                <View style={styles.dropdown}>
+                  {['Low', 'Medium', 'High'].map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      style={[
+                        styles.dropdownItem,
+                        priority === p && styles.dropdownItemSelected,
+                      ]}
+                      onPress={() => {
+                        setPriority(p);
+                        setShowPriorityDropdown(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownItemText,
+                          priority === p && styles.dropdownItemTextSelected,
+                        ]}
+                      >
+                        {p}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
               </View>
+              )}
             </View>
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Assign To</Text>
-              <View style={styles.pickerContainer}>
-                {isLoadingUsers ? (
-                  <View style={[styles.picker, styles.loadingContainer]}>
-                    <Text style={styles.loadingText}>Loading users...</Text>
-                  </View>
-                ) : users.length > 0 ? (
-                  <Picker
-                    selectedValue={assignUserId}
-                    onValueChange={(value: number) => setAssignUserId(value)}
-                    style={styles.picker}
-                  >
-                    {users.map((user) => (
-                      <Picker.Item
-                        key={user.id}
-                        label={`${user.name} (${user.role})`}
-                        value={user.id}
-                      />
-                    ))}
-                  </Picker>
-                ) : (
-                  <View style={[styles.picker, styles.loadingContainer]}>
-                    <Text style={styles.loadingText}>No users available</Text>
+              <TouchableOpacity
+                style={styles.input}
+                onPress={() => {
+                  setShowUserDropdown(!showUserDropdown);
+                  setShowPriorityDropdown(false);
+                  setShowDeviceDropdown(false);
+                }}
+              >
+                <Text style={styles.inputText}>
+                  {users.find((u) => u.id === assignUserId)?.name || 'Select User'}
+                </Text>
+              </TouchableOpacity>
+              {showUserDropdown && (
+                <View style={[styles.dropdown, { maxHeight: 180 }]}>
+                  <FlatList
+                    data={users}
+                    keyExtractor={(u) => u.id.toString()}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={[
+                          styles.dropdownItem,
+                          assignUserId === item.id && styles.dropdownItemSelected,
+                        ]}
+                        onPress={() => {
+                          setAssignUserId(item.id);
+                          setShowUserDropdown(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            assignUserId === item.id && styles.dropdownItemTextSelected,
+                          ]}
+                        >
+                          {item.name} ({item.role})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  />
                   </View>
                 )}
-              </View>
             </View>
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Device</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={deviceId}
-                  onValueChange={(value: number) => setDeviceId(value)}
-                  style={styles.picker}
-                >
-                  {devices.map((device) => (
-                    <Picker.Item
-                      key={device.id}
-                      label={`${device.name} (${device.serial_number})`}
-                      value={device.id}
-                    />
-                  ))}
-                </Picker>
-              </View>
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Due Date *</Text>
-              <TouchableOpacity onPress={showDatepicker} style={styles.input}>
-                <Text style={styles.inputText}>{formatDate(dueDate)}</Text>
+              <TouchableOpacity
+                style={styles.input}
+                onPress={() => {
+                  setShowDeviceDropdown(!showDeviceDropdown);
+                  setShowPriorityDropdown(false);
+                  setShowUserDropdown(false);
+                }}
+              >
+                <Text style={styles.inputText}>
+                  {devices.find((d) => d.id === deviceId)?.name || 'Select Device'}
+                </Text>
               </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  testID="datePicker"
-                  value={dueDate}
-                  mode="date"
-                  display="default"
-                  onChange={onChangeDate}
-                />
+              {showDeviceDropdown && (
+                <View style={[styles.dropdown, { maxHeight: 180 }]}>
+                  <FlatList
+                    data={devices}
+                    keyExtractor={(d) => d.id.toString()}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={[
+                          styles.dropdownItem,
+                          deviceId === item.id && styles.dropdownItemSelected,
+                        ]}
+                        onPress={() => {
+                          setDeviceId(item.id);
+                          setShowDeviceDropdown(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            deviceId === item.id && styles.dropdownItemTextSelected,
+                          ]}
+                        >
+                          {item.name} ({item.serial_number})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
               )}
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Due Time *</Text>
-               <TouchableOpacity onPress={showTimepicker} style={styles.input}>
-                <Text style={styles.inputText}>{formatTime(dueTime)}</Text>
+              <Text style={styles.label}>Due Date & Time *</Text>
+              <TouchableOpacity onPress={showDatetimepicker} style={styles.input}>
+                <Text style={styles.inputText}>{formatDateTime(dueDateTime)}</Text>
               </TouchableOpacity>
-              {showTimePicker && (
+              {showDateTimePicker && (
                 <DateTimePicker
-                  testID="timePicker"
-                  value={dueTime}
-                  mode="time"
+                  testID="dateTimePicker"
+                  value={dueDateTime}
+                  mode="datetime"
                   display="default"
-                  onChange={onChangeTime}
+                  onChange={onChangeDatetime}
                 />
               )}
+              {dateTimeError ? <Text style={styles.errorText}>{dateTimeError}</Text> : null}
             </View>
           </ScrollView>
 
@@ -295,25 +620,28 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             <Button
               title="Cancel"
               variant="outlined"
+              color="secondary"
               onPress={onClose}
-              style={styles.footerButton}
+              style={{ flex: 1 }}
             />
             <Button
-              title="Create Task"
+              title="Update Task"
               variant="filled"
+              color="primary"
               onPress={handleSubmit}
-              loading={isSubmitting}
-              style={styles.footerButton}
+              loading={showLoader}
+              disabled={showLoader || !title.trim() || !dueDateTime || isNaN(dueDateTime.getTime())}
+              style={{ flex: 1 }}
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
@@ -340,7 +668,7 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: SPACING.xs,
   },
-  form: {
+  modalBody: {
     padding: SPACING.md,
   },
   formGroup: {
@@ -367,18 +695,36 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     color: COLORS.neutral[900],
   },
-  textArea: {
-    height: 100,
+  inputError: {
+    borderColor: COLORS.error.light,
   },
-  pickerContainer: {
+  errorText: {
+    color: COLORS.error.light,
+    fontSize: FONT_SIZES.sm,
+    marginBottom: 8,
+  },
+  dropdown: {
     borderWidth: 1,
     borderColor: COLORS.neutral[300],
     borderRadius: BORDER_RADIUS.md,
     overflow: 'hidden',
   },
-  picker: {
-    height: 50,
-    width: '100%',
+  dropdownItem: {
+    padding: 12,
+    backgroundColor: COLORS.white,
+  },
+  dropdownItemSelected: {
+    backgroundColor: COLORS.primary.light,
+  },
+  dropdownItemText: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.neutral[900],
+  },
+  dropdownItemTextSelected: {
+    fontFamily: FONTS.bold,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.white,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -388,19 +734,6 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.neutral[200],
     gap: SPACING.sm,
   },
-  footerButton: {
-    minWidth: 100,
-  },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.neutral[100],
-  },
-  loadingText: {
-    fontFamily: FONTS.medium,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.neutral[600],
-  },
 });
 
-export default CreateTaskModal; 
+export default TaskModal; 

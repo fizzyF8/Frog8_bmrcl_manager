@@ -5,10 +5,10 @@ import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS, SHADOWS } from '@/co
 import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useTheme } from '@/context/theme';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
+import { faqApi } from '@/utils/api';
 
 interface FAQItem {
   id: number;
@@ -46,42 +46,18 @@ export default function FAQScreen() {
       }
       setError(null);
       setSyncState('syncing');
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        setError('Authentication required');
-        setLoading(false);
-        setRefreshing(false);
-        setSyncState('error');
-        return;
-      }
-
-      const response = await axios.get<FAQResponse>('https://demo.ctrmv.com/veriphy/public/api/v1/faqs/list', {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.data.status === 'true' && Array.isArray(response.data.faq)) {
-        setFaqItems(response.data.faq);
+      const response = await faqApi.getFAQs();
+      if (response.status === 'true' && Array.isArray(response.faq)) {
+        setFaqItems(response.faq);
         setSyncState('synced');
         setLastRefreshTime(new Date());
       } else {
-        console.log('Invalid response structure:', {
-          status: response.data.status,
-          hasFaq: !!response.data.faq,
-          isArray: Array.isArray(response.data.faq)
-        });
         setError('Invalid FAQ data received');
         setSyncState('error');
       }
     } catch (err) {
       console.error('Error fetching FAQs:', err);
-      if (axios.isAxiosError(err)) {
-        setError(`Failed to fetch FAQs: ${err.response?.data?.message || err.message}`);
-      } else {
-        setError('Failed to fetch FAQs. Please try again later.');
-      }
+      setError('Failed to fetch FAQs. Please try again later.');
       setSyncState('error');
     } finally {
       setLoading(false);

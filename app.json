@@ -11,7 +11,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.faaiz09.boltexponativewind",
-      "buildNumber": "1.0.0"
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to the camera to take photos for task completion.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select photos for task completion."
+      }
     },
     "web": {
       "bundler": "metro",
@@ -35,11 +39,16 @@
     "android": {
       "package": "com.faaiz09.boltexponativewind",
       "versionCode": 1,
-      "permissions": [],
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "buildType": "apk"
     }
   }
 }

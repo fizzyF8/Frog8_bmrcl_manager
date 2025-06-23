@@ -7,11 +7,11 @@ import Button from '@/components/ui/Button';
 import { PlusCircle, Pencil, Trash2, X, Clock, Search, Filter, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/context/theme';
 import { useAuth } from '@/context/auth';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { notesApi } from '@/utils/api';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Note {
   id: number;
@@ -342,18 +342,12 @@ function NotesScreen() {
   }, []);
 
   const fetchNotes = async () => {
-    if (!token) return;
     setLoading(true);
     setSyncState('syncing');
     try {
-      const response = await axios.get('https://demo.ctrmv.com/veriphy/public/api/v1/notes/list', {
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (response.data.status === 'true') {
-        const sortedNotes = response.data.notes.sort((a: Note, b: Note) => {
+      const response = await notesApi.getNotes();
+      if (response.status === 'true') {
+        const sortedNotes = response.notes.sort((a, b) => {
           const dateA = new Date(Math.max(new Date(a.created_at).getTime(), new Date(a.updated_at).getTime()));
           const dateB = new Date(Math.max(new Date(b.created_at).getTime(), new Date(b.updated_at).getTime()));
           return dateB.getTime() - dateA.getTime();
@@ -384,7 +378,6 @@ function NotesScreen() {
   }, [token]);
 
   const handleDeleteNote = async (id: number) => {
-    if (!token) return;
     Alert.alert(
       'Delete Note',
       'Are you sure you want to delete this note?',
@@ -398,16 +391,8 @@ function NotesScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await axios.delete(
-                `https://demo.ctrmv.com/veriphy/public/api/v1/notes/delete/${id}`,
-                {
-                  headers: {
-                    Accept: 'application/json',
-                    Authorization: `Bearer ${token}`,
-                  },
-                }
-              );
-              if (response.data.status === 'true') {
+              const response = await notesApi.deleteNote(id);
+              if (response.status === 'true') {
                 setNotes(notes.filter(note => note.id !== id));
                 Alert.alert('Success', 'Note deleted successfully');
               }
@@ -422,33 +407,20 @@ function NotesScreen() {
   };
 
   const handleAddNote = async () => {
-    if (!token) return;
     if (!title.trim() || !content.trim()) {
       Alert.alert('Error', 'Please enter both title and content');
       return;
     }
     try {
-      const response = await axios.post(
-        'https://demo.ctrmv.com/veriphy/public/api/v1/notes/store',
-        {
-          title: title.trim(),
-          content: content.trim(),
-        },
-        {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (response.data.message === 'Note added successfully') {
+      const response = await notesApi.addNote(title.trim(), content.trim());
+      if (response.message === 'Note added successfully') {
         await fetchNotes();
         setModalVisible(false);
         setTitle('');
         setContent('');
         Alert.alert('Success', 'Note added successfully');
       } else {
-        throw new Error(response.data.message || 'Failed to add note');
+        throw new Error(response.message || 'Failed to add note');
       }
     } catch (error) {
       console.error('Error adding note:', error);
@@ -457,22 +429,10 @@ function NotesScreen() {
   };
 
   const handleUpdateNote = async () => {
-    if (!token || !editingNote) return;
+    if (!editingNote) return;
     try {
-      const response = await axios.put(
-        `https://demo.ctrmv.com/veriphy/public/api/v1/notes/update/${editingNote.id}`,
-        {
-          title,
-          content,
-        },
-        {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (response.data.status === 'true') {
+      const response = await notesApi.updateNote(editingNote.id, title, content);
+      if (response.status === 'true') {
         await fetchNotes();
         setModalVisible(false);
         setEditingNote(null);
