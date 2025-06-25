@@ -478,25 +478,14 @@ export default function TasksScreen() {
       {item.status.toLowerCase() !== 'completed' && item.status.toLowerCase() !== 'cancelled' && (
         <View style={styles.taskActions}>
           {item.status.toLowerCase() === 'pending' && (
-            <Button
-              title="Start Task"
-              size="sm"
-              variant="filled"
-              color="primary"
-              leftIcon={<Clock size={16} color={COLORS.white} />}
-              onPress={() => handleStartTask(item.id)}
-            />
-          )}
-
-          {item.status.toLowerCase() === 'in progress' && (
-            <View style={styles.taskActions}>
+            <>
               <Button
-                title="Complete Task"
+                title="Start Task"
                 size="sm"
                 variant="filled"
-                color="success"
-                leftIcon={<CheckCircle size={16} color={COLORS.white} />}
-                onPress={() => handleCompleteTask(item.id)}
+                color="primary"
+                leftIcon={<Clock size={16} color={COLORS.white} />}
+                onPress={() => handleStartTask(item.id)}
               />
               <Button
                 title="Edit"
@@ -517,7 +506,17 @@ export default function TasksScreen() {
                 onPress={() => handleDeleteTask(item.id)}
                 style={{ marginLeft: 8 }}
               />
-            </View>
+            </>
+          )}
+          {item.status.toLowerCase() === 'in progress' && (
+            <Button
+              title="Complete Task"
+              size="sm"
+              variant="filled"
+              color="success"
+              leftIcon={<CheckCircle size={16} color={COLORS.white} />}
+              onPress={() => handleCompleteTask(item.id)}
+            />
           )}
         </View>
       )}
@@ -618,6 +617,7 @@ export default function TasksScreen() {
           onClose={() => setIsCreateModalVisible(false)}
           onTaskCreated={() => {
             setIsCreateModalVisible(false);
+            Alert.alert('Success', 'Task added successfully!');
             fetchTasks();
           }}
         />
@@ -630,6 +630,7 @@ export default function TasksScreen() {
           onTaskUpdated={() => {
             setIsEditModalVisible(false);
             setEditTask(null);
+            Alert.alert('Success', 'Task updated successfully!');
             fetchTasks();
           }}
           initialTask={editTask}
