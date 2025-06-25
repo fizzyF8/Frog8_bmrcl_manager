@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Platform, Modal, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
 import Card from '@/components/ui/Card';
@@ -163,6 +163,9 @@ export default function TasksScreen() {
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [taskImageUri, setTaskImageUri] = useState<string | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchTasks();
@@ -321,63 +324,59 @@ export default function TasksScreen() {
     }
   };
 
-  const handleCompleteTask = async (taskId: number) => {
-    Alert.alert(
-      'Complete Task',
-      'Would you like to add a photo to document the completion?',
-      [
-        {
-          text: 'Complete without photo',
-          onPress: () => completeTaskWithImage(taskId),
-        },
-        {
-          text: 'Add photo',
-          onPress: () => completeTaskWithImage(taskId, undefined, true),
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
+  const handleCompleteTask = (taskId: number) => {
+    setSelectedTaskId(taskId);
+    setTaskImageUri(null);
+    setShowImageModal(true);
   };
 
-  const completeTaskWithImage = async (taskId: number, imageUri?: string, shouldPickImage: boolean = false) => {
-    try {
-      setSyncState('syncing');
-      let finalImageUri = imageUri;
+  const handleImageCapture = async () => {
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+      base64: false,
+      cameraType: ImagePicker.CameraType.back,
+    });
+    if (!result.canceled && result.assets[0].uri) {
+      setTaskImageUri(result.assets[0].uri);
+    }
+  };
 
-      if (shouldPickImage) {
+  const handleImageReupload = async () => {
+    Alert.alert('Upload Image', 'Choose an option', [
+      { text: 'Camera', onPress: handleImageCapture },
+      { text: 'Gallery', onPress: async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [4, 3],
-          quality: 0.8,
+          quality: 0.7,
+          base64: false,
         });
-
-        if (!result.canceled && result.assets[0]) {
-          finalImageUri = result.assets[0].uri;
-        } else {
-          setSyncState('synced');
-          return;
+        if (!result.canceled && result.assets[0].uri) {
+          setTaskImageUri(result.assets[0].uri);
         }
-      }
+      }},
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
 
-      const response = await taskApi.completeTask(taskId, finalImageUri);
-      
-      if (response.status === 'true') {
+  const handleImageModalConfirm = async () => {
+    if (selectedTaskId && taskImageUri) {
+      try {
+        setShowImageModal(false);
+        await taskApi.completeTask(selectedTaskId, taskImageUri);
         Alert.alert('Success', 'Task completed successfully!');
-        // Refresh tasks and task stats
-        await fetchTasks();
-        await refreshTaskStats();
-      } else {
-        Alert.alert('Error', response.message || 'Failed to complete task');
+        fetchTasks();
+        refreshTaskStats();
+      } catch (error) {
+        Alert.alert('Error', 'Failed to complete task. Please try again.');
+      } finally {
+        setTaskImageUri(null);
+        setSelectedTaskId(null);
       }
-    } catch (error) {
-      console.error('Error completing task:', error);
-      Alert.alert('Error', 'Failed to complete task. Please try again.');
-    } finally {
-      setSyncState('synced');
     }
   };
 
@@ -525,6 +524,28 @@ export default function TasksScreen() {
     </Card>
   );
 
+  const renderImageModal = () => (
+    <Modal visible={showImageModal} transparent animationType="slide">
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <View style={{ backgroundColor: theme.card, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, width: '90%' }}>
+          <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginBottom: SPACING.md }}>Task Completion Image Required</Text>
+          {taskImageUri ? (
+            <Image source={{ uri: taskImageUri }} style={{ width: '100%', height: 300, borderRadius: BORDER_RADIUS.md, marginBottom: SPACING.md }} />
+          ) : (
+            <View style={{ width: '100%', height: 300, borderRadius: BORDER_RADIUS.md, marginBottom: SPACING.md, backgroundColor: theme.border, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: theme.secondaryText }}>No image selected</Text>
+            </View>
+          )}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: SPACING.md }}>
+            <Button variant="outlined" onPress={handleImageReupload} title={taskImageUri ? 'Retake/Reupload' : 'Upload Image'} />
+            <Button onPress={handleImageModalConfirm} title="Confirm" disabled={!taskImageUri} />
+          </View>
+          <Button variant="ghost" onPress={() => { setShowImageModal(false); setTaskImageUri(null); setSelectedTaskId(null); }} title="Cancel" />
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <ErrorBoundary>
       <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
@@ -614,6 +635,7 @@ export default function TasksScreen() {
           initialTask={editTask}
           isEdit
         />
+        {renderImageModal()}
       </SafeAreaView>
     </ErrorBoundary>
   );
