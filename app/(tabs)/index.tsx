@@ -351,7 +351,6 @@ export default function Dashboard() {
   const [syncState, setSyncState] = useState<'syncing' | 'synced' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -362,17 +361,6 @@ export default function Dashboard() {
 
     return () => clearInterval(interval);
   }, []);
-
-  // Show update notification when task stats change
-  useEffect(() => {
-    if (myTaskStats.total > 0) {
-      setShowUpdateNotification(true);
-      const timer = setTimeout(() => {
-        setShowUpdateNotification(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [myTaskStats]);
 
   const fetchDashboardData = async () => {
     try {
@@ -485,11 +473,6 @@ export default function Dashboard() {
   return (
     <ErrorBoundary>
       <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
-        {showUpdateNotification && (
-          <View style={styles.updateNotification}>
-            <Text style={styles.updateNotificationText}>✓ Tasks Updated</Text>
-          </View>
-        )}
         <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
           <View>
             <Text style={[styles.greeting, { color: theme.secondaryText }]}>{getTimeBasedGreeting()},</Text>
