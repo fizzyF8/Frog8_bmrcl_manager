@@ -35,12 +35,14 @@ export interface LogoutResponse {
 
 export interface UserProfile {
   id: number;
+  user_id?: number; // for compatibility with API
   name: string;
   email: string;
   phone: string;
   organization_id: number;
   organization_name: string;
   role: string;
+  role_id: number;
   status: string;
   city_id: number;
   city: string;
@@ -48,6 +50,12 @@ export interface UserProfile {
   state: string;
   country_id: number;
   country: string;
+  address: string;
+  postal_code: string | null;
+  department_id: number;
+  avatar?: string;
+  profile_image_url?: string;
+  permissions?: string[];
 }
 
 export interface ProfileResponse {
@@ -640,6 +648,45 @@ export const notificationApi = {
     const response = await api.post('/notifications/read-multiple', { ids });
     return response.data;
   },
+};
+
+export const updateUser = async (
+  userId: number,
+  data: {
+    name: string;
+    email: string;
+    phone: string;
+    role_id: string;
+    address: string;
+    city_id: string;
+    state_id: string;
+    country_id: string;
+    postal_code: string;
+    department_id: string;
+    profile_image?: { uri: string; name: string; type: string } | null;
+  }
+): Promise<{ status: string; message: string }> => {
+  const formData = new FormData();
+  formData.append('name', data.name);
+  formData.append('email', data.email);
+  formData.append('phone', data.phone);
+  formData.append('role_id', data.role_id);
+  formData.append('address', data.address);
+  formData.append('city_id', data.city_id);
+  formData.append('state_id', data.state_id);
+  formData.append('country_id', data.country_id);
+  formData.append('postal_code', data.postal_code);
+  formData.append('department_id', data.department_id);
+  if (data.profile_image) {
+    formData.append('profile_image', data.profile_image as any);
+  }
+  const response = await api.post(`/user/update/${userId}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      'Accept': 'application/json',
+    },
+  });
+  return response.data;
 };
 
 export default api; 

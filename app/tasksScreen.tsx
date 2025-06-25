@@ -246,13 +246,18 @@ export default function TasksScreen() {
         .filter(user => userIds.includes(user.id))
         .reduce((acc: { [key: number]: UserProfile }, user) => {
           acc[user.id] = {
-            ...user,
-            city_id: 0, // Default values since API doesn't provide these
-            city: '',
-            state_id: 0,
-            state: '',
-            country_id: 0,
-            country: '',
+            ...(user as any),
+            city_id: (user as any).city_id || 0,
+            city: (user as any).city || '',
+            state_id: (user as any).state_id || 0,
+            state: (user as any).state || '',
+            country_id: (user as any).country_id || 0,
+            country: (user as any).country || '',
+            role_id: (user as any).role_id || 0,
+            address: (user as any).address || '',
+            postal_code: (user as any).postal_code || '',
+            department_id: (user as any).department_id || 0,
+            avatar: (user as any).avatar || '',
           };
           return acc;
         }, {});
