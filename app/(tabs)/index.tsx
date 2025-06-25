@@ -7,6 +7,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { Bell, ChevronRight, ArrowUp, ArrowDown, User } from 'lucide-react-native';
 import { useAuth } from '@/context/auth';
+import { useTaskContext } from '@/context/taskContext';
 import api, { TVMsResponse, TVM, tvmApi } from '@/utils/api';
 import { useTheme } from '@/context/theme';
 import { getTimeElapsedString } from '@/utils/time';
@@ -19,12 +20,6 @@ const tvmStats = {
   maintenance: 5,
   error: 2,
   offline: 1,
-};
-
-const tasks = {
-  pending: 12,
-  inProgress: 5,
-  completed: 28,
 };
 
 const alerts = [
@@ -132,6 +127,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: FONTS.bold,
     fontSize: FONT_SIZES.lg,
+  },
+  sectionHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
   },
   viewAllButton: {
     flexDirection: 'row',
@@ -282,6 +282,48 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.medium,
     fontSize: FONT_SIZES.sm,
   },
+  taskTotalText: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.neutral[500],
+    textAlign: 'center',
+    marginTop: SPACING.xs,
+  },
+  syncIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  syncText: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZES.xs,
+  },
+  updateNotification: {
+    position: 'absolute',
+    top: 100,
+    right: SPACING.md,
+    backgroundColor: COLORS.success.light,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  updateNotificationText: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.white,
+  },
 });
 
 const getTimeBasedGreeting = () => {
@@ -294,6 +336,7 @@ const getTimeBasedGreeting = () => {
 export default function Dashboard() {
   const { theme } = useTheme();
   const { user } = useAuth() as { user: User | null };
+  const { myTaskStats, loading: taskLoading, refreshMyTasks } = useTaskContext();
   const router = useRouter();
   const [tvmStats, setTvmStats] = useState({
     operational: 0,
@@ -307,10 +350,28 @@ export default function Dashboard() {
   const [syncState, setSyncState] = useState<'syncing' | 'synced' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
+    // Set up real-time updates every 30 seconds
+    const interval = setInterval(() => {
+      fetchDashboardData();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
+
+  // Show update notification when task stats change
+  useEffect(() => {
+    if (myTaskStats.total > 0) {
+      setShowUpdateNotification(true);
+      const timer = setTimeout(() => {
+        setShowUpdateNotification(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [myTaskStats]);
 
   const fetchDashboardData = async () => {
     try {
@@ -318,33 +379,32 @@ export default function Dashboard() {
       setRefreshing(true);
       setError(null);
       setSyncState('syncing');
-      const response = await tvmApi.getTVMs();
-      const tvmResponse = response.data;
+      
+      // Fetch TVM data
+      const tvmResponse = await tvmApi.getTVMs();
+      const tvmData = tvmResponse.data;
 
-      if (tvmResponse.status === 'true' && tvmResponse.devices) {
-        const operational = tvmResponse.devices.filter((tvm: TVM) => tvm.status === '1').length;
-        const maintenance = tvmResponse.devices.filter((tvm: TVM) => tvm.status === '2').length;
-        const errorCount = tvmResponse.devices.filter((tvm: TVM) => tvm.status === '3').length;
-        const offline = tvmResponse.devices.filter((tvm: TVM) => tvm.status === '0').length;
-        const total = tvmResponse.devices.length;
+      if (tvmData.status === 'true' && tvmData.devices) {
+        const operational = tvmData.devices.filter((tvm: TVM) => tvm.status === '1').length;
+        const maintenance = tvmData.devices.filter((tvm: TVM) => tvm.status === '2').length;
+        const errorCount = tvmData.devices.filter((tvm: TVM) => tvm.status === '3').length;
+        const offline = tvmData.devices.filter((tvm: TVM) => tvm.status === '0').length;
+        const total = tvmData.devices.length;
 
-        const newTvmStats = {
+        setTvmStats({
           operational,
           maintenance,
           error: errorCount,
           offline,
           total,
-        };
-        setTvmStats(newTvmStats);
-
-        setSyncState('synced');
-        setLastSyncTime(new Date());
-      } else {
-        const errorMessage = tvmResponse.message || 'Failed to fetch TVM stats';
-        setError(errorMessage);
-        setSyncState('error');
-        console.error('Failed to fetch TVM stats:', errorMessage);
+        });
       }
+
+      // Fetch my tasks data using context
+      await refreshMyTasks();
+
+      setSyncState('synced');
+      setLastSyncTime(new Date());
     } catch (err) {
       const errorMessage = 'Failed to fetch dashboard data. Please try again.';
       setError(errorMessage);
@@ -354,11 +414,6 @@ export default function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchDashboardData();
   };
 
   const getStatusLabel = (status: string): string => {
@@ -429,6 +484,11 @@ export default function Dashboard() {
   return (
     <ErrorBoundary>
       <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>
+        {showUpdateNotification && (
+          <View style={styles.updateNotification}>
+            <Text style={styles.updateNotificationText}>✓ Tasks Updated</Text>
+          </View>
+        )}
         <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
           <View>
             <Text style={[styles.greeting, { color: theme.secondaryText }]}>{getTimeBasedGreeting()},</Text>
@@ -463,7 +523,7 @@ export default function Dashboard() {
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
-                onRefresh={onRefresh}
+                onRefresh={fetchDashboardData}
                 colors={[COLORS.primary.light]}
                 tintColor={COLORS.primary.light}
               />
@@ -507,23 +567,43 @@ export default function Dashboard() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>Tasks Overview</Text>
-                <TouchableOpacity style={styles.viewAllButton} onPress={() => router.push('/tasksScreen')}>
-                  <Text style={[styles.viewAllText, { color: COLORS.primary.light }]}>View All</Text>
-                  <ChevronRight size={16} color={COLORS.primary.light} />
-                </TouchableOpacity>
+                <View style={styles.sectionHeaderRight}>
+                  {taskLoading && (
+                    <View style={styles.syncIndicator}>
+                      <ActivityIndicator size="small" color={COLORS.primary.light} />
+                      <Text style={[styles.syncText, { color: theme.secondaryText }]}>Syncing...</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity style={styles.viewAllButton} onPress={() => router.push('/tasksScreen')}>
+                    <Text style={[styles.viewAllText, { color: COLORS.primary.light }]}>View All</Text>
+                    <ChevronRight size={16} color={COLORS.primary.light} />
+                  </TouchableOpacity>
+                </View>
               </View>
               <View style={styles.taskStatsContainer}>
                 <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
-                  <Text style={[styles.taskStatValue, { color: theme.text }]}>{tasks.pending}</Text>
+                  {taskLoading ? (
+                    <ActivityIndicator size="small" color={COLORS.primary.light} />
+                  ) : (
+                    <Text style={[styles.taskStatValue, { color: theme.text }]}>{myTaskStats.total}</Text>
+                  )}
+                  <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Total</Text>
+                </Card>
+                <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
+                  {taskLoading ? (
+                    <ActivityIndicator size="small" color={COLORS.primary.light} />
+                  ) : (
+                    <Text style={[styles.taskStatValue, { color: theme.text }]}>{myTaskStats.pending}</Text>
+                  )}
                   <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Pending</Text>
                 </Card>
                 <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
-                  <Text style={[styles.taskStatValue, { color: theme.text }]}>{tasks.inProgress}</Text>
-                  <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Progress</Text>
-                </Card>
-                <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
-                  <Text style={[styles.taskStatValue, { color: theme.text }]}>{tasks.completed}</Text>
-                  <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Complete</Text>
+                  {taskLoading ? (
+                    <ActivityIndicator size="small" color={COLORS.primary.light} />
+                  ) : (
+                    <Text style={[styles.taskStatValue, { color: theme.text }]}>{myTaskStats.completed}</Text>
+                  )}
+                  <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Completed</Text>
                 </Card>
               </View>
             </View>

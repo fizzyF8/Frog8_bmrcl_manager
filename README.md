@@ -142,3 +142,39 @@ This project is proprietary and confidential. All rights reserved.
 - BMRCL for the opportunity
 - Expo team for the amazing framework
 - All contributors who have helped shape this project
+
+## Real-Time Features
+
+The app now includes comprehensive real-time data synchronization:
+
+1. **Automatic Updates**: Dashboard refreshes every 30 seconds
+2. **Event-Driven Updates**: Task changes trigger immediate dashboard updates
+3. **Visual Feedback**: Loading indicators and sync notifications
+4. **Error Handling**: Graceful fallbacks when network issues occur
+5. **Cross-Screen Sync**: Changes in one screen immediately reflect in others
+
+## Technical Implementation
+
+### Task Context System
+- Centralized state management using React Context
+- Automatic initialization on app startup
+- Real-time synchronization across all screens
+- Error handling and loading states
+
+### API Integration
+- RESTful API integration with real-time data fetching
+- Optimistic updates for better user experience
+- Automatic retry mechanisms for failed requests
+
+### Performance Optimizations
+- Efficient data filtering and processing
+- Minimal re-renders with proper state management
+- Background data synchronization
+
+## API Endpoints
+
+The app integrates with the BMRCL API for:
+- Task management (`/tasks/*`)
+- TVM monitoring (`/devices/*`)
+- User management (`/users/*`)
+- Authentication (`/auth/*`)

@@ -14,6 +14,7 @@ import { taskApi, Task, tvmApi, TVM, authApi, UserProfile } from '@/utils/api';
 import TaskModal from '@/components/task/CreateTaskModal';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/context/auth';
+import { useTaskContext } from '@/context/taskContext';
 import * as ImagePicker from 'expo-image-picker';
 
 const styles = StyleSheet.create({
@@ -151,6 +152,7 @@ export default function TasksScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { refreshTaskStats } = useTaskContext();
   const [syncState, setSyncState] = useState<'offline' | 'syncing' | 'synced' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
@@ -198,60 +200,61 @@ export default function TasksScreen() {
       setTasks(taskData);
       
       if (taskData.length > 0) {
-        // Fetch device details for all tasks
-        const deviceIds = [...new Set(taskData.map(task => task.device_id))];
-        console.log('Fetching details for devices:', deviceIds);
-        const devicePromises = deviceIds.map(id => tvmApi.getTVM(id));
-        const deviceResponses = await Promise.all(devicePromises);
-        const deviceMap = deviceResponses.reduce((acc, response) => {
-          if (response.status === 'true' && response.device) {
-            acc[response.device.id] = response.device;
-          }
-          return acc;
-        }, {} as { [key: number]: TVM });
-        console.log('Device map:', deviceMap);
-        setDevices(deviceMap);
-
-        // Fetch user profiles for all tasks
-        const userIds = [...new Set([
-          ...taskData.map(task => task.assign_user_id),
-          ...taskData.map(task => task.assign_by)
-        ])];
-        console.log('Fetching details for users:', userIds);
-        
-        // Get all users and filter to the ones we need
-        const usersResponse = await authApi.getUsers();
-        if (usersResponse.status === 'true' && usersResponse.user) {
-          const userMap = usersResponse.user
-            .filter(user => userIds.includes(user.id))
-            .reduce((acc: { [key: number]: UserProfile }, user) => {
-              acc[user.id] = {
-                ...user,
-                city_id: 0, // Default values since API doesn't provide these
-                city: '',
-                state_id: 0,
-                state: '',
-                country_id: 0,
-                country: '',
-              };
-              return acc;
-            }, {});
-          console.log('User map:', userMap);
-          setUsers(userMap);
-        }
+        // Fetch devices and users for task details
+        await fetchDevicesAndUsers(taskData);
       }
 
       setSyncState('synced');
       setLastSyncTime(new Date());
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      Alert.alert(
-        'Error',
-        'Failed to fetch tasks. Please try again.',
-        [{ text: 'OK', onPress: () => setSyncState('error') }]
-      );
+      setSyncState('error');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchDevicesAndUsers = async (taskData: Task[]) => {
+    // Fetch device details for all tasks
+    const deviceIds = [...new Set(taskData.map(task => task.device_id))];
+    console.log('Fetching details for devices:', deviceIds);
+    const devicePromises = deviceIds.map(id => tvmApi.getTVM(id));
+    const deviceResponses = await Promise.all(devicePromises);
+    const deviceMap = deviceResponses.reduce((acc, response) => {
+      if (response.status === 'true' && response.device) {
+        acc[response.device.id] = response.device;
+      }
+      return acc;
+    }, {} as { [key: number]: TVM });
+    console.log('Device map:', deviceMap);
+    setDevices(deviceMap);
+
+    // Fetch user profiles for all tasks
+    const userIds = [...new Set([
+      ...taskData.map(task => task.assign_user_id),
+      ...taskData.map(task => task.assign_by)
+    ])];
+    console.log('Fetching details for users:', userIds);
+    
+    // Get all users and filter to the ones we need
+    const usersResponse = await authApi.getUsers();
+    if (usersResponse.status === 'true' && usersResponse.user) {
+      const userMap = usersResponse.user
+        .filter(user => userIds.includes(user.id))
+        .reduce((acc: { [key: number]: UserProfile }, user) => {
+          acc[user.id] = {
+            ...user,
+            city_id: 0, // Default values since API doesn't provide these
+            city: '',
+            state_id: 0,
+            state: '',
+            country_id: 0,
+            country: '',
+          };
+          return acc;
+        }, {});
+      console.log('User map:', userMap);
+      setUsers(userMap);
     }
   };
 
@@ -298,145 +301,120 @@ export default function TasksScreen() {
   };
 
   const handleStartTask = async (taskId: number) => {
-    Alert.alert(
-      'Start Task',
-      'Are you sure you want to start this task?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Start',
-          onPress: async () => {
-            try {
-              setSyncState('syncing');
-              const response = await taskApi.startTask(taskId);
-              await fetchTasks(); // Refresh the task list
-              setSyncState('synced');
-              setLastSyncTime(new Date());
-              Alert.alert('Success', response.message || 'Task started successfully');
-            } catch (error) {
-              console.error('Error starting task:', error);
-              setSyncState('error');
-              Alert.alert('Error', 'Failed to start task. Please try again.');
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+    try {
+      setSyncState('syncing');
+      const response = await taskApi.startTask(taskId);
+      
+      if (response.status === 'true') {
+        Alert.alert('Success', 'Task started successfully!');
+        // Refresh tasks and task stats
+        await fetchTasks();
+        await refreshTaskStats();
+      } else {
+        Alert.alert('Error', response.message || 'Failed to start task');
+      }
+    } catch (error) {
+      console.error('Error starting task:', error);
+      Alert.alert('Error', 'Failed to start task. Please try again.');
+    } finally {
+      setSyncState('synced');
+    }
   };
 
   const handleCompleteTask = async (taskId: number) => {
-    const options = ['Take Photo', 'Choose from Gallery', 'Complete without Image', 'Cancel'];
     Alert.alert(
       'Complete Task',
-      'Would you like to add a photo?',
+      'Would you like to add a photo to document the completion?',
       [
         {
-          text: 'Take Photo',
-          onPress: async () => {
-            try {
-              const { status } = await ImagePicker.requestCameraPermissionsAsync();
-              if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Please grant camera permissions to take photos.');
-                return;
-              }
-
-              const result = await ImagePicker.launchCameraAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [4, 3],
-                quality: 0.8,
-              });
-
-              if (!result.canceled) {
-                completeTaskWithImage(taskId, result.assets[0].uri);
-              }
-            } catch (error) {
-              console.error('Error taking photo:', error);
-              Alert.alert('Error', 'Failed to take photo. Please try again.');
-            }
-          },
-        },
-        {
-          text: 'Choose from Gallery',
-          onPress: async () => {
-            try {
-              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-              if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Please grant media library permissions to choose photos.');
-                return;
-              }
-
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [4, 3],
-                quality: 0.8,
-              });
-
-              if (!result.canceled) {
-                completeTaskWithImage(taskId, result.assets[0].uri);
-              }
-            } catch (error) {
-              console.error('Error picking image:', error);
-              Alert.alert('Error', 'Failed to pick image. Please try again.');
-            }
-          },
-        },
-        {
-          text: 'Complete without Image',
+          text: 'Complete without photo',
           onPress: () => completeTaskWithImage(taskId),
+        },
+        {
+          text: 'Add photo',
+          onPress: () => completeTaskWithImage(taskId, undefined, true),
         },
         {
           text: 'Cancel',
           style: 'cancel',
         },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 
-  const completeTaskWithImage = async (taskId: number, imageUri?: string) => {
+  const completeTaskWithImage = async (taskId: number, imageUri?: string, shouldPickImage: boolean = false) => {
     try {
       setSyncState('syncing');
-      const response = await taskApi.completeTask(taskId, imageUri);
-      await fetchTasks(); // Refresh the task list
-      setSyncState('synced');
-      setLastSyncTime(new Date());
-      Alert.alert('Success', response.message || 'Task completed successfully');
+      let finalImageUri = imageUri;
+
+      if (shouldPickImage) {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+          finalImageUri = result.assets[0].uri;
+        } else {
+          setSyncState('synced');
+          return;
+        }
+      }
+
+      const response = await taskApi.completeTask(taskId, finalImageUri);
+      
+      if (response.status === 'true') {
+        Alert.alert('Success', 'Task completed successfully!');
+        // Refresh tasks and task stats
+        await fetchTasks();
+        await refreshTaskStats();
+      } else {
+        Alert.alert('Error', response.message || 'Failed to complete task');
+      }
     } catch (error) {
       console.error('Error completing task:', error);
-      setSyncState('error');
       Alert.alert('Error', 'Failed to complete task. Please try again.');
+    } finally {
+      setSyncState('synced');
     }
   };
 
   const handleDeleteTask = async (taskId: number) => {
     Alert.alert(
       'Delete Task',
-      'Are you sure you want to delete this task?',
+      'Are you sure you want to delete this task? This action cannot be undone.',
       [
-        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete', style: 'destructive', onPress: async () => {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
             try {
               setSyncState('syncing');
               const response = await taskApi.deleteTask(taskId);
-              await fetchTasks();
-              setSyncState('synced');
-              setLastSyncTime(new Date());
-              Alert.alert('Success', response.message || 'Task deleted successfully');
+              
+              if (response.status === 'true') {
+                Alert.alert('Success', 'Task deleted successfully!');
+                // Refresh tasks and task stats
+                await fetchTasks();
+                await refreshTaskStats();
+              } else {
+                Alert.alert('Error', response.message || 'Failed to delete task');
+              }
             } catch (error) {
-              setSyncState('error');
+              console.error('Error deleting task:', error);
               Alert.alert('Error', 'Failed to delete task. Please try again.');
+            } finally {
+              setSyncState('synced');
             }
-          }
-        }
-      ],
-      { cancelable: true }
+          },
+        },
+      ]
     );
   };
 

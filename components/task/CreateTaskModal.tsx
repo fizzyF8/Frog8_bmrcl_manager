@@ -9,6 +9,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Loader from '@/components/ui/Loader';
+import { useTaskContext } from '@/context/taskContext';
 
 interface TaskModalProps {
   visible: boolean;
@@ -27,6 +28,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
   initialTask = null,
   isEdit = false,
 }) => {
+  const { refreshTaskStats } = useTaskContext();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<string>('Medium');
@@ -187,10 +189,13 @@ const TaskModal: React.FC<TaskModalProps> = ({
         response = await taskApi.createTask(taskData);
       }
       if (response.status === 'true') {
+        // Refresh task stats to update dashboard
+        await refreshTaskStats();
+        
         if (isEdit && onTaskUpdated) {
           onTaskUpdated();
         } else if (onTaskCreated) {
-        onTaskCreated();
+          onTaskCreated();
         }
         onClose();
       } else {
