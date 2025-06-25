@@ -572,4 +572,74 @@ export const notesApi = {
   },
 };
 
+export interface NotificationData {
+  title: string;
+  message: string;
+  url: string;
+  event: string;
+  from_user_id: number;
+  from_user_name: string;
+  from_user_image: string;
+}
+
+export interface Notification {
+  id: string;
+  data: NotificationData;
+  read_at: string | null;
+}
+
+export interface NotificationsListResponse {
+  status: string;
+  message: string;
+  notifications: {
+    current_page: number;
+    data: Notification[];
+    first_page_url: string;
+    from: number;
+    last_page: number;
+    last_page_url: string;
+    links: any[];
+    next_page_url: string | null;
+    path: string;
+    per_page: number;
+    prev_page_url: string | null;
+    to: number;
+    total: number;
+  };
+}
+
+export interface UnreadNotificationsResponse {
+  status: boolean;
+  message: string;
+  notifications: Notification[];
+}
+
+export interface MarkNotificationReadResponse {
+  status: boolean;
+  message: string;
+}
+
+export const notificationApi = {
+  getAllNotifications: async (): Promise<NotificationsListResponse> => {
+    const response = await api.get('/notifications/list');
+    return response.data;
+  },
+  getUnreadNotifications: async (): Promise<UnreadNotificationsResponse> => {
+    const response = await api.get('/notifications/unread');
+    return response.data;
+  },
+  markNotificationRead: async (id: string): Promise<MarkNotificationReadResponse> => {
+    const response = await api.post(`/notifications/read/${id}`);
+    return response.data;
+  },
+  markAllNotificationsRead: async (): Promise<MarkNotificationReadResponse> => {
+    const response = await api.post('/notifications/read-all');
+    return response.data;
+  },
+  markMultipleNotificationsRead: async (ids: string[]): Promise<MarkNotificationReadResponse> => {
+    const response = await api.post('/notifications/read-multiple', { ids });
+    return response.data;
+  },
+};
+
 export default api; 

@@ -7,7 +7,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { Bell, ChevronRight, ArrowUp, ArrowDown, User } from 'lucide-react-native';
 import { useAuth } from '@/context/auth';
-import { useTaskContext } from '@/context/taskContext';
+import { useTaskContext, useNotificationContext } from '@/context/taskContext';
 import api, { TVMsResponse, TVM, tvmApi } from '@/utils/api';
 import { useTheme } from '@/context/theme';
 import { getTimeElapsedString } from '@/utils/time';
@@ -337,6 +337,7 @@ export default function Dashboard() {
   const { theme } = useTheme();
   const { user } = useAuth() as { user: User | null };
   const { myTaskStats, loading: taskLoading, refreshMyTasks } = useTaskContext();
+  const { unreadCount, refreshUnread } = useNotificationContext();
   const router = useRouter();
   const [tvmStats, setTvmStats] = useState({
     operational: 0,
@@ -501,11 +502,14 @@ export default function Dashboard() {
           </View>
           <View style={styles.headerRight}>
             <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime || new Date())} />
-            <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/notifications')}>
+            <TouchableOpacity style={styles.notificationButton} onPress={() => {
+              router.push('/notifications');
+              refreshUnread();
+            }}>
               <Bell size={24} color={theme.text} />
-              {alerts.length > 0 && (
+              {unreadCount > 0 && (
                 <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationCount}>{alerts.length}</Text>
+                  <Text style={styles.notificationCount}>{unreadCount}</Text>
                 </View>
               )}
             </TouchableOpacity>

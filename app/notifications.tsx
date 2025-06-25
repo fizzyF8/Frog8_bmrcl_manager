@@ -1,92 +1,96 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useMemo, useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONTS, FONT_SIZES, BORDER_RADIUS, SHADOWS } from '@/constants/theme';
 import { useTheme } from '@/context/theme';
 import { Bell, CheckCircle, AlertCircle, Info, Clock, ArrowLeft, Check } from 'lucide-react-native';
 import Card from '@/components/ui/Card';
 import { useRouter } from 'expo-router';
+import { notificationApi, Notification } from '@/utils/api';
 
-type NotificationType = 'success' | 'warning' | 'info' | 'error';
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: NotificationType;
-  timestamp: string;
-  read: boolean;
-}
-
-// Mock data for notifications
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'Task Completed',
-    message: 'The TVM maintenance task has been completed successfully.',
-    type: 'success',
-    timestamp: '2024-03-20T10:30:00',
-    read: false,
-  },
-  {
-    id: '2',
-    title: 'System Update',
-    message: 'A new system update is available. Please update when convenient.',
-    type: 'info',
-    timestamp: '2024-03-20T09:15:00',
-    read: true,
-  },
-  {
-    id: '3',
-    title: 'Warning',
-    message: 'Low battery detected on TVM #1234. Please check soon.',
-    type: 'warning',
-    timestamp: '2024-03-19T16:45:00',
-    read: false,
-  },
-  {
-    id: '4',
-    title: 'Error Detected',
-    message: 'Connection lost with TVM #5678. Please investigate.',
-    type: 'error',
-    timestamp: '2024-03-19T14:20:00',
-    read: true,
-  },
-];
-
-const getNotificationIcon = (type: NotificationType) => {
-  switch (type) {
-    case 'success':
+const getNotificationIcon = (event: string) => {
+  // You can customize icons based on event type
+  switch (event) {
+    case 'approve_leave':
       return <CheckCircle size={24} color={COLORS.success.light} />;
-    case 'warning':
+    case 'remove_leave':
       return <AlertCircle size={24} color={COLORS.warning.light} />;
-    case 'error':
-      return <AlertCircle size={24} color={COLORS.error.light} />;
-    case 'info':
+    case 'task_assignment':
       return <Info size={24} color={COLORS.accent.light} />;
+    case 'shift_assignment':
+      return <Info size={24} color={COLORS.accent.light} />;
+    default:
+      return <Bell size={24} color={COLORS.primary.light} />;
   }
 };
 
-const formatTimestamp = (timestamp: string) => {
+const formatTimestamp = (timestamp: string | null) => {
+  if (!timestamp) return '';
   const date = new Date(timestamp);
   const now = new Date();
-  const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-
-  if (diffInHours < 24) {
-    return `${diffInHours}h ago`;
-  } else {
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) {
+    if (mins === 0) return `${diffHours}h ago`;
+    return `${diffHours}h ${mins}m ago`;
   }
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 
 const NotificationsScreen = () => {
   const { theme } = useTheme();
   const router = useRouter();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [markingAll, setMarkingAll] = useState(false);
+
+  const fetchNotifications = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await notificationApi.getAllNotifications();
+      setNotifications(res.notifications.data);
+    } catch (e) {
+      setError('Failed to load notifications');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await notificationApi.markNotificationRead(id);
+      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+    } catch (e) {
+      Alert.alert('Error', 'Failed to mark notification as read');
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    setMarkingAll(true);
+    try {
+      await notificationApi.markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read_at: new Date().toISOString() })));
+    } catch (e) {
+      Alert.alert('Error', 'Failed to mark all as read');
+    } finally {
+      setMarkingAll(false);
+    }
+  };
 
   const styles = useMemo(() => StyleSheet.create({
     container: {
@@ -207,29 +211,31 @@ const NotificationsScreen = () => {
         marginBottom: SPACING.md,
         borderRadius: BORDER_RADIUS.lg,
         backgroundColor: theme.card,
-        opacity: item.read ? 0.7 : 1,
+        opacity: item.read_at ? 0.7 : 1,
         ...SHADOWS.sm,
       }}
     >
       <TouchableOpacity 
         style={styles.notificationContent}
-        onPress={() => {
-          // Handle notification press
+        onPress={async () => {
+          if (!item.read_at) {
+            await handleMarkAsRead(item.id);
+          }
         }}
       >
         <View style={styles.iconContainer}>
-          {getNotificationIcon(item.type)}
+          {getNotificationIcon(item.data.event)}
         </View>
         <View style={styles.textContainer}>
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>{item.title}</Text>
-            {!item.read && <View style={styles.unreadIndicator} />}
+            <Text style={styles.title}>{item.data.title}</Text>
+            {!item.read_at && <View style={styles.unreadIndicator} />}
           </View>
-          <Text style={styles.message}>{item.message}</Text>
+          <Text style={styles.message}>{item.data.message.replace(/<[^>]+>/g, '')}</Text>
           <View style={styles.timestampContainer}>
             <Clock size={14} color={theme.secondaryText} />
             <Text style={styles.timestamp}>
-              {formatTimestamp(item.timestamp)}
+              {formatTimestamp(item.read_at)}
             </Text>
           </View>
         </View>
@@ -251,30 +257,39 @@ const NotificationsScreen = () => {
         </View>
         <TouchableOpacity 
           style={styles.markAllButton}
-          onPress={() => {
-            // Handle mark all as read
-          }}
+          onPress={handleMarkAllAsRead}
+          disabled={markingAll}
         >
-          <Check size={20} color={COLORS.primary.light} />
+          {markingAll ? <ActivityIndicator size={18} color={COLORS.primary.light} /> : <Check size={20} color={COLORS.primary.light} />}
         </TouchableOpacity>
       </View>
-      <FlatList
-        data={mockNotifications}
-        renderItem={renderNotification}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconContainer}>
-              <Bell size={48} color={theme.secondaryText} />
+      {loading ? (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary.light} />
+        </View>
+      ) : error ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>{error}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={notifications}
+          renderItem={renderNotification}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconContainer}>
+                <Bell size={48} color={theme.secondaryText} />
+              </View>
+              <Text style={styles.emptyText}>
+                No notifications yet
+              </Text>
             </View>
-            <Text style={styles.emptyText}>
-              No notifications yet
-            </Text>
-          </View>
-        }
-      />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 };

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Task, taskApi } from '@/utils/api';
 import { useAuth } from '@/context/auth';
+import { notificationApi, Notification } from '@/utils/api';
 
 interface TaskStats {
   pending: number;
@@ -79,4 +80,29 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   };
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
+};
+
+// Notification context for unread count
+interface NotificationContextType {
+  unreadCount: number;
+  refreshUnread: () => Promise<void>;
+}
+const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+export const useNotificationContext = () => {
+  const context = useContext(NotificationContext);
+  if (!context) throw new Error('useNotificationContext must be used within a NotificationProvider');
+  return context;
+};
+export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [unreadCount, setUnreadCount] = useState(0);
+  const refreshUnread = useCallback(async () => {
+    try {
+      const res = await notificationApi.getUnreadNotifications();
+      setUnreadCount(res.notifications.length);
+    } catch {
+      setUnreadCount(0);
+    }
+  }, []);
+  useEffect(() => { refreshUnread(); }, [refreshUnread]);
+  return <NotificationContext.Provider value={{ unreadCount, refreshUnread }}>{children}</NotificationContext.Provider>;
 }; 

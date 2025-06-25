@@ -6,7 +6,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@exp
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { ThemeProvider } from '@/context/theme';
-import { TaskProvider } from '@/context/taskContext';
+import { TaskProvider, NotificationProvider } from '@/context/taskContext';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { View, ActivityIndicator, Platform, Text } from 'react-native';
 import { COLORS } from '@/constants/theme';
@@ -148,10 +148,12 @@ export default function RootLayout() {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
-          <TaskProvider>
-            <RootLayoutNav />
-            <StatusBar style="auto" />
-          </TaskProvider>
+          <NotificationProvider>
+            <TaskProvider>
+              <RootLayoutNav />
+              <StatusBar style="auto" />
+            </TaskProvider>
+          </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
