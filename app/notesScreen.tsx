@@ -478,7 +478,7 @@ function NotesScreen() {
     return (
       <Card style={styles.noteCard}>
         <View style={styles.noteHeader}>
-          <Text style={styles.noteTitle}>{item.title}</Text>
+          <Text style={[styles.noteTitle, { color: theme.text }]}>{item.title}</Text>
           <View style={styles.noteActions}>
             {/* {hasPermission('notes.edit') && ( */}
               <TouchableOpacity style={styles.actionButton} onPress={() => openEditModal(item)}>
@@ -492,7 +492,7 @@ function NotesScreen() {
             {/* )} */}
           </View>
         </View>
-        <Text style={styles.noteContent}>{item.content}</Text>
+        <Text style={[styles.noteContent, { color: theme.text }]}>{item.content}</Text>
         <View style={styles.noteMetadata}>
           <Clock size={14} color={COLORS.neutral[500]} />
           <Text style={styles.metadataText}>{getTimeElapsedString(new Date(item.updated_at))} ago</Text>
@@ -595,72 +595,73 @@ function NotesScreen() {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContainer}
+          style={{ flex: 1 }}
         >
-          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>
-                {editingNote ? 'Edit Note' : 'Add Note'}
-              </Text>
-              <TouchableOpacity
-                onPress={closeModal}
-                style={[styles.closeButton, { backgroundColor: theme.background }]}
-              >
-                <X size={24} color={theme.text} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.inputLabel, { color: theme.text }]}>Title</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    color: theme.text,
-                    borderColor: theme.border,
-                    backgroundColor: theme.background,
-                  },
-                ]}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Enter note title"
-                placeholderTextColor={theme.secondaryText}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={[styles.inputLabel, { color: theme.text }]}>Content</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.textArea,
-                  {
-                    color: theme.text,
-                    borderColor: theme.border,
-                    backgroundColor: theme.background,
-                  },
-                ]}
-                value={content}
-                onChangeText={setContent}
-                placeholder="Enter note content"
-                placeholderTextColor={theme.secondaryText}
-                multiline
-              />
-            </View>
-
-            <View style={styles.modalActions}>
-              <Button
-                variant="outlined"
-                title="Cancel"
-                onPress={closeModal}
-                style={{ minWidth: 120 }}
-              />
-              <Button
-                title={editingNote ? 'Update' : 'Add'}
-                onPress={editingNote ? handleUpdateNote : handleAddNote}
-                style={{ minWidth: 120 }}
-                color="success"
-              />
+          <View style={[styles.modalContainer, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>
+                  {editingNote ? 'Edit Note' : 'Add Note'}
+                </Text>
+                <TouchableOpacity
+                  onPress={closeModal}
+                  style={styles.closeButton}
+                >
+                  <X size={24} color={theme.text} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>Title</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      color: theme.text,
+                      borderColor: theme.border,
+                      backgroundColor: theme.card,
+                    },
+                  ]}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="Enter note title"
+                  placeholderTextColor={theme.secondaryText}
+                />
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={[styles.inputLabel, { color: theme.text }]}>Content</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.textArea,
+                    {
+                      color: theme.text,
+                      borderColor: theme.border,
+                      backgroundColor: theme.card,
+                    },
+                  ]}
+                  value={content}
+                  onChangeText={setContent}
+                  placeholder="Enter note content"
+                  placeholderTextColor={theme.secondaryText}
+                  multiline
+                />
+              </View>
+              <View style={styles.modalActions}>
+                <Button
+                  title="Cancel"
+                  variant="outlined"
+                  color="secondary"
+                  onPress={closeModal}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  title={editingNote ? 'Update' : 'Add'}
+                  variant="filled"
+                  color="primary"
+                  onPress={editingNote ? handleUpdateNote : handleAddNote}
+                  style={{ flex: 1 }}
+                />
+              </View>
             </View>
           </View>
         </KeyboardAvoidingView>

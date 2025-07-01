@@ -6,6 +6,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Button from '@/components/ui/Button';
 import { Clock, CircleCheck as CheckCircle, Calendar, Ticket, User } from 'lucide-react-native';
 import { Task, TaskPriority, TaskStatus } from '@/types';
+import { useTheme } from '@/context/theme';
 
 interface TaskCardProps {
   task: Task;
@@ -20,6 +21,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onStartTask,
   onCompleteTask
 }) => {
+  const { theme } = useTheme();
+
   const getStatusType = (status: TaskStatus): 'success' | 'warning' | 'error' | 'info' | 'default' => {
     switch (status) {
       case TaskStatus.COMPLETED:
@@ -62,7 +65,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <Card variant="outlined" style={styles.container}>
+      <Card variant="outlined" style={StyleSheet.flatten([styles.container, { backgroundColor: theme.card, borderColor: theme.border }])}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <StatusBadge 
@@ -77,31 +80,31 @@ const TaskCard: React.FC<TaskCardProps> = ({
               style={{ marginLeft: SPACING.xs }}
             />
           </View>
-          <Text style={styles.taskId}>{task.id}</Text>
+          <Text style={[styles.taskId, { color: theme.text }]}>{task.id}</Text>
         </View>
         
-        <Text style={styles.title}>{task.title}</Text>
-        <Text style={styles.description}>{task.description}</Text>
+        <Text style={[styles.title, { color: theme.text }]}>{task.title}</Text>
+        <Text style={[styles.description, { color: theme.secondaryText }]}>{task.description}</Text>
         
         <View style={styles.details}>
           {task.tvmId && (
             <View style={styles.detailItem}>
               <Ticket size={16} color={COLORS.neutral[500]} />
-              <Text style={styles.detailText}>{task.tvmId}</Text>
+              <Text style={[styles.detailText, { color: theme.text }]}>{task.tvmId}</Text>
             </View>
           )}
           
           {task.assignedToId && (
             <View style={styles.detailItem}>
               <User size={16} color={COLORS.neutral[500]} />
-              <Text style={styles.detailText}>RM: Suman</Text>
+              <Text style={[styles.detailText, { color: theme.text }]}>RM: Suman</Text>
             </View>
           )}
           
           {task.dueDate && (
             <View style={styles.detailItem}>
               <Calendar size={16} color={COLORS.neutral[500]} />
-              <Text style={styles.detailText}>Due: {formatDate(task.dueDate)}</Text>
+              <Text style={[styles.detailText, { color: theme.text }]}>Due: {formatDate(task.dueDate)}</Text>
             </View>
           )}
         </View>

@@ -362,8 +362,8 @@ export default function ProfileScreen() {
               style={{ width: width * 0.9, height: height * 0.6, marginBottom: 24 }}
               resizeMode="contain"
             />
-            <TouchableOpacity onPress={() => setImageModalVisible(false)} style={{ padding: 12, backgroundColor: '#fff', borderRadius: 24 }}>
-              <Text style={{ color: '#222', fontWeight: 'bold', fontSize: 16 }}>Close</Text>
+            <TouchableOpacity onPress={() => setImageModalVisible(false)} style={{ padding: 12, backgroundColor: theme.card, borderRadius: 24 }}>
+              <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 16 }}>Close</Text>
             </TouchableOpacity>
           </View>
         </Modal>

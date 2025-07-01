@@ -10,6 +10,7 @@ import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Loader from '@/components/ui/Loader';
 import { useTaskContext } from '@/context/taskContext';
+import { useTheme } from '@/context/theme';
 
 interface TaskModalProps {
   visible: boolean;
@@ -29,6 +30,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
   isEdit = false,
 }) => {
   const { refreshTaskStats } = useTaskContext();
+  const { theme } = useTheme();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<string>('Medium');
@@ -221,207 +223,215 @@ const TaskModal: React.FC<TaskModalProps> = ({
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalContainer}
+          style={{ flex: 1 }}
         >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create New Task</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <X size={24} color={COLORS.neutral[500]} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Title *</Text>
-                <TextInput
-                  style={[styles.input, titleError && styles.inputError]}
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="Enter task title"
-                  placeholderTextColor={COLORS.neutral[400]}
-                />
-                {titleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Description</Text>
-                <TextInput
-                  style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Enter task description"
-                  placeholderTextColor={COLORS.neutral[400]}
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Priority</Text>
-                <TouchableOpacity
-                  style={styles.input}
-                  onPress={() => {
-                    setShowPriorityDropdown(!showPriorityDropdown);
-                    setShowUserDropdown(false);
-                    setShowDeviceDropdown(false);
-                  }}
-                >
-                  <Text style={styles.inputText}>{priority}</Text>
+          <View style={[styles.modalContainer, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Create New Task</Text>
+                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                  <X size={24} color={theme.text} />
                 </TouchableOpacity>
-                {showPriorityDropdown && (
-                  <View style={styles.dropdown}>
-                    {['Low', 'Medium', 'High'].map((p) => (
-                      <TouchableOpacity
-                        key={p}
-                        style={[
-                          styles.dropdownItem,
-                          priority === p && styles.dropdownItemSelected,
-                        ]}
-                        onPress={() => {
-                          setPriority(p);
-                          setShowPriorityDropdown(false);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownItemText,
-                            priority === p && styles.dropdownItemTextSelected,
-                          ]}
-                        >
-                          {p}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Assign To</Text>
-                <TouchableOpacity
-                  style={styles.input}
-                  onPress={() => {
-                    setShowUserDropdown(!showUserDropdown);
-                    setShowPriorityDropdown(false);
-                    setShowDeviceDropdown(false);
-                  }}
-                >
-                  <Text style={styles.inputText}>
-                    {users.find((u) => u.id === assignUserId)?.name || 'Select User'}
-                  </Text>
-                </TouchableOpacity>
-                {showUserDropdown && (
-                  <View style={[styles.dropdown, { maxHeight: 180 }]}>
-                    <FlatList
-                      data={users}
-                      keyExtractor={(u) => u.id.toString()}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={[
-                            styles.dropdownItem,
-                            assignUserId === item.id && styles.dropdownItemSelected,
-                          ]}
-                          onPress={() => {
-                            setAssignUserId(item.id);
-                            setShowUserDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              assignUserId === item.id && styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {item.name} ({item.role})
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    />
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Device</Text>
-                <TouchableOpacity
-                  style={styles.input}
-                  onPress={() => {
-                    setShowDeviceDropdown(!showDeviceDropdown);
-                    setShowPriorityDropdown(false);
-                    setShowUserDropdown(false);
-                  }}
-                >
-                  <Text style={styles.inputText}>
-                    {devices.find((d) => d.id === deviceId)?.name || 'Select Device'}
-                  </Text>
-                </TouchableOpacity>
-                {showDeviceDropdown && (
-                  <View style={[styles.dropdown, { maxHeight: 180 }]}>
-                    <FlatList
-                      data={devices}
-                      keyExtractor={(d) => d.id.toString()}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={[
-                            styles.dropdownItem,
-                            deviceId === item.id && styles.dropdownItemSelected,
-                          ]}
-                          onPress={() => {
-                            setDeviceId(item.id);
-                            setShowDeviceDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              deviceId === item.id && styles.dropdownItemTextSelected,
-                            ]}
-                          >
-                            {item.name} ({item.serial_number})
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    />
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Due Date & Time *</Text>
-                <TouchableOpacity onPress={showDatetimepicker} style={styles.input}>
-                  <Text style={styles.inputText}>{formatDateTime(dueDateTime)}</Text>
-                </TouchableOpacity>
-                {showDateTimePicker && (
-                  <DateTimePicker
-                    testID="dateTimePicker"
-                    value={dueDateTime}
-                    mode="datetime"
-                    display="default"
-                    onChange={onChangeDatetime}
+              <ScrollView style={styles.modalBody}>
+                <View style={styles.formGroup}>
+                  <Text style={[styles.label, { color: theme.text }]}>Title *</Text>
+                  <TextInput
+                    style={[styles.input, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border }]}
+                    value={title}
+                    onChangeText={setTitle}
+                    placeholder="Enter task title"
+                    placeholderTextColor={theme.secondaryText}
                   />
-                )}
-                {dateTimeError ? <Text style={styles.errorText}>{dateTimeError}</Text> : null}
-              </View>
-            </ScrollView>
+                  {titleError ? <Text style={[styles.errorText, { color: theme.error }]}>{titleError}</Text> : null}
+                </View>
 
-            <View style={styles.modalFooter}>
-              <Button
-                title="Cancel"
-                variant="outlined"
-                color="secondary"
-                onPress={onClose}
-                style={{ flex: 1 }}
-              />
-              <Button
-                title="Create Task"
-                variant="filled"
-                color="primary"
-                onPress={handleSubmit}
-                loading={showLoader}
-                disabled={showLoader || !title.trim() || !dueDateTime || isNaN(dueDateTime.getTime())}
-                style={{ flex: 1 }}
-              />
+                <View style={styles.formGroup}>
+                  <Text style={[styles.label, { color: theme.text }]}>Description</Text>
+                  <TextInput
+                    style={[styles.input, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border, height: 100, textAlignVertical: 'top' }]}
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Enter task description"
+                    placeholderTextColor={theme.secondaryText}
+                    multiline
+                    numberOfLines={4}
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={[styles.label, { color: theme.text }]}>Priority</Text>
+                  <TouchableOpacity
+                    style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
+                    onPress={() => {
+                      setShowPriorityDropdown(!showPriorityDropdown);
+                      setShowUserDropdown(false);
+                      setShowDeviceDropdown(false);
+                    }}
+                  >
+                    <Text style={[styles.inputText, { color: theme.text }]}>{priority}</Text>
+                  </TouchableOpacity>
+                  {showPriorityDropdown && (
+                    <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                      {['Low', 'Medium', 'High'].map((p) => (
+                        <TouchableOpacity
+                          key={p}
+                          style={[
+                            styles.dropdownItem,
+                            { backgroundColor: priority === p ? theme.primary : theme.background },
+                          ]}
+                          onPress={() => {
+                            setPriority(p);
+                            setShowPriorityDropdown(false);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              { color: theme.text },
+                              priority === p && { fontFamily: FONTS.bold },
+                            ]}
+                          >
+                            {p}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={[styles.label, { color: theme.text }]}>Assign To</Text>
+                  <TouchableOpacity
+                    style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
+                    onPress={() => {
+                      setShowUserDropdown(!showUserDropdown);
+                      setShowPriorityDropdown(false);
+                      setShowDeviceDropdown(false);
+                    }}
+                  >
+                    <Text style={[styles.inputText, { color: theme.text }]}>
+                      {users.find((u) => u.id === assignUserId)?.name || 'Select User'}
+                    </Text>
+                  </TouchableOpacity>
+                  {showUserDropdown && (
+                    <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border, maxHeight: 180 }]}>
+                      <FlatList
+                        data={users}
+                        keyExtractor={(u) => u.id.toString()}
+                        renderItem={({ item }) => (
+                          <TouchableOpacity
+                            style={[
+                              styles.dropdownItem,
+                              { backgroundColor: assignUserId === item.id ? theme.primary : theme.background },
+                            ]}
+                            onPress={() => {
+                              setAssignUserId(item.id);
+                              setShowUserDropdown(false);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                { color: theme.text },
+                                assignUserId === item.id && { fontFamily: FONTS.bold },
+                              ]}
+                            >
+                              {item.name} ({item.role})
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={[styles.label, { color: theme.text }]}>Device</Text>
+                  <TouchableOpacity
+                    style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
+                    onPress={() => {
+                      setShowDeviceDropdown(!showDeviceDropdown);
+                      setShowPriorityDropdown(false);
+                      setShowUserDropdown(false);
+                    }}
+                  >
+                    <Text style={[styles.inputText, { color: theme.text }]}>
+                      {devices.find((d) => d.id === deviceId)?.name || 'Select Device'}
+                    </Text>
+                  </TouchableOpacity>
+                  {showDeviceDropdown && (
+                    <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border, maxHeight: 180 }]}>
+                      <FlatList
+                        data={devices}
+                        keyExtractor={(d) => d.id.toString()}
+                        renderItem={({ item }) => (
+                          <TouchableOpacity
+                            style={[
+                              styles.dropdownItem,
+                              { backgroundColor: deviceId === item.id ? theme.primary : theme.background },
+                            ]}
+                            onPress={() => {
+                              setDeviceId(item.id);
+                              setShowDeviceDropdown(false);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                { color: theme.text },
+                                deviceId === item.id && { fontFamily: FONTS.bold },
+                              ]}
+                            >
+                              {item.name} ({item.serial_number})
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={[styles.label, { color: theme.text }]}>Due Date & Time *</Text>
+                  <TouchableOpacity
+                    style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
+                    onPress={showDatetimepicker}
+                  >
+                    <Text style={[styles.inputText, { color: theme.text }]}>{formatDateTime(dueDateTime)}</Text>
+                  </TouchableOpacity>
+                  {showDateTimePicker && (
+                    <DateTimePicker
+                      testID="dateTimePicker"
+                      value={dueDateTime}
+                      mode="datetime"
+                      display="default"
+                      onChange={onChangeDatetime}
+                    />
+                  )}
+                  {dateTimeError ? <Text style={[styles.errorText, { color: theme.error }]}>{dateTimeError}</Text> : null}
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <Button
+                  title="Cancel"
+                  variant="outlined"
+                  color="secondary"
+                  onPress={onClose}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  title="Create Task"
+                  variant="filled"
+                  color="primary"
+                  onPress={handleSubmit}
+                  loading={showLoader}
+                  disabled={showLoader || !title.trim() || !dueDateTime || isNaN(dueDateTime.getTime())}
+                  style={{ flex: 1 }}
+                />
+              </View>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -440,60 +450,67 @@ const TaskModal: React.FC<TaskModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalContainer}
       >
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { backgroundColor: theme.card }]}> 
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Edit Task</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Task</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color={COLORS.neutral[500]} />
+              <X size={24} color={theme.text} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalBody}>
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Title *</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Title *</Text>
               <TextInput
-                style={[styles.input, titleError && styles.inputError]}
+                style={[
+                  styles.input,
+                  { color: theme.text, backgroundColor: theme.background, borderColor: theme.border },
+                  titleError && { borderColor: theme.error },
+                ]}
                 value={title}
                 onChangeText={setTitle}
                 placeholder="Enter task title"
-                placeholderTextColor={COLORS.neutral[400]}
+                placeholderTextColor={theme.secondaryText}
               />
-              {titleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
+              {titleError ? <Text style={[styles.errorText, { color: theme.error }]}>{titleError}</Text> : null}
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Description</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Description</Text>
               <TextInput
-                style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+                style={[
+                  styles.input,
+                  { color: theme.text, backgroundColor: theme.background, borderColor: theme.border, height: 100, textAlignVertical: 'top' },
+                ]}
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Enter task description"
-                placeholderTextColor={COLORS.neutral[400]}
+                placeholderTextColor={theme.secondaryText}
                 multiline
                 numberOfLines={4}
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Priority</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Priority</Text>
               <TouchableOpacity
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
                 onPress={() => {
                   setShowPriorityDropdown(!showPriorityDropdown);
                   setShowUserDropdown(false);
                   setShowDeviceDropdown(false);
                 }}
               >
-                <Text style={styles.inputText}>{priority}</Text>
+                <Text style={[styles.inputText, { color: theme.text }]}>{priority}</Text>
               </TouchableOpacity>
               {showPriorityDropdown && (
-                <View style={styles.dropdown}>
+                <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border }]}> 
                   {['Low', 'Medium', 'High'].map((p) => (
                     <TouchableOpacity
                       key={p}
                       style={[
                         styles.dropdownItem,
-                        priority === p && styles.dropdownItemSelected,
+                        { backgroundColor: priority === p ? theme.primary : theme.background },
                       ]}
                       onPress={() => {
                         setPriority(p);
@@ -503,7 +520,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
                       <Text
                         style={[
                           styles.dropdownItemText,
-                          priority === p && styles.dropdownItemTextSelected,
+                          { color: theme.text },
+                          priority === p && { fontFamily: FONTS.bold },
                         ]}
                       >
                         {p}
@@ -515,21 +533,21 @@ const TaskModal: React.FC<TaskModalProps> = ({
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Assign To</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Assign To</Text>
               <TouchableOpacity
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
                 onPress={() => {
                   setShowUserDropdown(!showUserDropdown);
                   setShowPriorityDropdown(false);
                   setShowDeviceDropdown(false);
                 }}
               >
-                <Text style={styles.inputText}>
+                <Text style={[styles.inputText, { color: theme.text }]}> 
                   {users.find((u) => u.id === assignUserId)?.name || 'Select User'}
                 </Text>
               </TouchableOpacity>
               {showUserDropdown && (
-                <View style={[styles.dropdown, { maxHeight: 180 }]}>
+                <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border, maxHeight: 180 }]}> 
                   <FlatList
                     data={users}
                     keyExtractor={(u) => u.id.toString()}
@@ -537,7 +555,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                       <TouchableOpacity
                         style={[
                           styles.dropdownItem,
-                          assignUserId === item.id && styles.dropdownItemSelected,
+                          { backgroundColor: assignUserId === item.id ? theme.primary : theme.background },
                         ]}
                         onPress={() => {
                           setAssignUserId(item.id);
@@ -547,7 +565,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         <Text
                           style={[
                             styles.dropdownItemText,
-                            assignUserId === item.id && styles.dropdownItemTextSelected,
+                            { color: theme.text },
+                            assignUserId === item.id && { fontFamily: FONTS.bold },
                           ]}
                         >
                           {item.name} ({item.role})
@@ -560,21 +579,21 @@ const TaskModal: React.FC<TaskModalProps> = ({
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Device</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Device</Text>
               <TouchableOpacity
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
                 onPress={() => {
                   setShowDeviceDropdown(!showDeviceDropdown);
                   setShowPriorityDropdown(false);
                   setShowUserDropdown(false);
                 }}
               >
-                <Text style={styles.inputText}>
+                <Text style={[styles.inputText, { color: theme.text }]}> 
                   {devices.find((d) => d.id === deviceId)?.name || 'Select Device'}
                 </Text>
               </TouchableOpacity>
               {showDeviceDropdown && (
-                <View style={[styles.dropdown, { maxHeight: 180 }]}>
+                <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border, maxHeight: 180 }]}> 
                   <FlatList
                     data={devices}
                     keyExtractor={(d) => d.id.toString()}
@@ -582,7 +601,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                       <TouchableOpacity
                         style={[
                           styles.dropdownItem,
-                          deviceId === item.id && styles.dropdownItemSelected,
+                          { backgroundColor: deviceId === item.id ? theme.primary : theme.background },
                         ]}
                         onPress={() => {
                           setDeviceId(item.id);
@@ -592,7 +611,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
                         <Text
                           style={[
                             styles.dropdownItemText,
-                            deviceId === item.id && styles.dropdownItemTextSelected,
+                            { color: theme.text },
+                            deviceId === item.id && { fontFamily: FONTS.bold },
                           ]}
                         >
                           {item.name} ({item.serial_number})
@@ -605,9 +625,12 @@ const TaskModal: React.FC<TaskModalProps> = ({
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Due Date & Time *</Text>
-              <TouchableOpacity onPress={showDatetimepicker} style={styles.input}>
-                <Text style={styles.inputText}>{formatDateTime(dueDateTime)}</Text>
+              <Text style={[styles.label, { color: theme.text }]}>Due Date & Time *</Text>
+              <TouchableOpacity
+                style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
+                onPress={showDatetimepicker}
+              >
+                <Text style={[styles.inputText, { color: theme.text }]}>{formatDateTime(dueDateTime)}</Text>
               </TouchableOpacity>
               {showDateTimePicker && (
                 <DateTimePicker
@@ -618,7 +641,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                   onChange={onChangeDatetime}
                 />
               )}
-              {dateTimeError ? <Text style={styles.errorText}>{dateTimeError}</Text> : null}
+              {dateTimeError ? <Text style={[styles.errorText, { color: theme.error }]}>{dateTimeError}</Text> : null}
             </View>
           </ScrollView>
 

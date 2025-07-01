@@ -443,20 +443,20 @@ export default function TasksScreen() {
     <Card style={styles.taskCard}>
       <View style={styles.taskHeader}>
         <View style={styles.taskHeaderLeft}>
-          <Text style={styles.taskId}>#{item.id}</Text>
+          <Text style={[styles.taskId, { color: theme.text }]}>#{item.id}</Text>
         </View>
         <StatusBadge label={item.status} type={getStatusType(item.status)} />
       </View>
-      <Text style={styles.taskTitle}>{item.title}</Text>
-      <Text style={styles.taskDescription}>{item.description}</Text>
+      <Text style={[styles.taskTitle, { color: theme.text }]}>{item.title}</Text>
+      <Text style={[styles.taskDescription, { color: theme.text }]}>{item.description}</Text>
       <View style={styles.taskDetails}>
         <View style={styles.taskDetailItem}>
           <Clock size={16} color={theme.secondaryText} />
-          <Text style={styles.taskDetailText}>{formatDate(item.due_datetime)}</Text>
+          <Text style={[styles.taskDetailText, { color: theme.text }]}>{formatDate(item.due_datetime)}</Text>
         </View>
         <View style={styles.taskDetailItem}>
           <User size={16} color={theme.secondaryText} />
-          <Text style={styles.taskDetailText}>{users[item.assign_user_id]?.name || 'N/A'}</Text>
+          <Text style={[styles.taskDetailText, { color: theme.text }]}>{users[item.assign_user_id]?.name || 'N/A'}</Text>
         </View>
       </View>
       <View style={styles.taskActions}>

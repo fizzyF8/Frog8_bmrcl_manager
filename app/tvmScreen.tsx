@@ -534,7 +534,7 @@ export default function TVMsScreen() {
           animationType="slide"
           onRequestClose={() => setShowFilterModal(false)}
         >
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
             <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: theme.text }]}>Filter TVMs</Text>

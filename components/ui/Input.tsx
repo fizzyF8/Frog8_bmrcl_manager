@@ -12,6 +12,7 @@ import {
 import { COLORS, SPACING, BORDER_RADIUS, FONTS, FONT_SIZES } from '@/constants/theme';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { haptics } from '@/utils/haptics';
+import { useTheme } from '@/context/theme';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -41,6 +42,7 @@ const Input = forwardRef<TextInput, InputProps>(({
   ...props
 }, ref) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const { theme } = useTheme();
 
   const togglePasswordVisibility = () => {
     haptics.selection();
@@ -69,11 +71,12 @@ const Input = forwardRef<TextInput, InputProps>(({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={[styles.label, labelStyle]}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: theme.text }, labelStyle]}>{label}</Text>}
       <View
         style={[
           styles.inputContainer,
-          error ? styles.inputError : null,
+          { borderColor: theme.border, backgroundColor: theme.card },
+          error ? { borderColor: theme.error } : null,
         ]}
       >
         {leftIcon && <View style={styles.iconContainer}>{leftIcon}</View>}
@@ -81,11 +84,12 @@ const Input = forwardRef<TextInput, InputProps>(({
           ref={ref}
           style={[
             styles.input,
+            { color: theme.text },
             leftIcon ? { paddingLeft: 0 } : null,
             (rightIcon || secureTextEntry) ? { paddingRight: 0 } : null,
             inputStyle,
           ]}
-          placeholderTextColor={COLORS.neutral[400]}
+          placeholderTextColor={theme.secondaryText}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           onFocus={handleFocus}
           {...props}
@@ -96,7 +100,7 @@ const Input = forwardRef<TextInput, InputProps>(({
         <Text
           style={[
             styles.helperText,
-            error ? styles.errorText : null,
+            error ? { color: theme.error } : { color: theme.secondaryText },
             errorStyle,
           ]}
         >

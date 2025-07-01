@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { updateUser } from '@/utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
+import { useTheme } from '@/context/theme';
 
 interface ProfileEditModalProps {
   visible: boolean;
@@ -17,6 +18,7 @@ interface ProfileEditModalProps {
 }
 
 const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ visible, onClose, user, onProfileUpdated }) => {
+  const { theme } = useTheme();
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [address, setAddress] = useState(user?.address || '');
@@ -247,12 +249,12 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ visible, onClose, u
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <View style={styles.overlay}>
-          <View style={styles.modalContent}>
+        <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <View style={styles.header}>
-              <Text style={styles.title}>Edit Profile</Text>
+              <Text style={[styles.title, { color: theme.text }]}>Edit Profile</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <X size={24} color={COLORS.neutral[700]} />
+                <X size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.formContent}>
@@ -262,62 +264,62 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ visible, onClose, u
                 ) : (
                   <Image source={{ uri: user?.profile_image_url || 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg' }} style={styles.profileImage} />
                 )}
-                <View style={styles.cameraIconOverlay}>
-                  <Camera size={20} color={COLORS.primary.light} />
+                <View style={[styles.cameraIconOverlay, { backgroundColor: theme.card, borderColor: theme.primary }]}>
+                  <Camera size={20} color={theme.primary} />
                 </View>
               </TouchableOpacity>
-              <Input label="Name" value={name} onChangeText={setName} autoCapitalize="words" style={styles.input} error={nameError} editable />
-              <Input label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={styles.input} error={phoneError} editable />
-              <Input label="Address" value={address} onChangeText={setAddress} style={styles.input} error={addressError} editable />
+              <Input label="Name" value={name} onChangeText={setName} autoCapitalize="words" style={[styles.input, { color: theme.text, backgroundColor: theme.card, borderColor: theme.border }]} error={nameError} editable placeholderTextColor={theme.secondaryText} />
+              <Input label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={[styles.input, { color: theme.text, backgroundColor: theme.card, borderColor: theme.border }]} error={phoneError} editable placeholderTextColor={theme.secondaryText} />
+              <Input label="Address" value={address} onChangeText={setAddress} style={[styles.input, { color: theme.text, backgroundColor: theme.card, borderColor: theme.border }]} error={addressError} editable placeholderTextColor={theme.secondaryText} />
               <View style={styles.pickerGroup}>
-                <Text style={styles.pickerLabel}>Country</Text>
-                <View style={styles.pickerWrapper}>
+                <Text style={[styles.pickerLabel, { color: theme.text }]}>Country</Text>
+                <View style={[styles.pickerWrapper, { backgroundColor: theme.card }]}>
                   <Picker
                     selectedValue={countryId}
                     onValueChange={(itemValue) => setCountryId(itemValue)}
                     enabled={!loadingCountries}
-                    style={{ width: '100%' }}
+                    style={{ width: '100%', color: 'black', backgroundColor: theme.card }}
                   >
-                    <Picker.Item label="Select Country" value="" />
+                    <Picker.Item label="Select Country" value="" color="black" />
                     {countries.map((country) => (
-                      <Picker.Item key={country.id} label={country.name} value={String(country.id)} />
+                      <Picker.Item key={country.id} label={country.name} value={String(country.id)} color="black" />
                     ))}
                   </Picker>
-                  {countryError ? <Text style={styles.errorText}>{countryError}</Text> : null}
+                  {countryError ? <Text style={[styles.errorText, { color: theme.error }]}>{countryError}</Text> : null}
                 </View>
               </View>
               <View style={styles.pickerGroup}>
-                <Text style={styles.pickerLabel}>State</Text>
-                <View style={styles.pickerWrapper}>
+                <Text style={[styles.pickerLabel, { color: theme.text }]}>State</Text>
+                <View style={[styles.pickerWrapper, { backgroundColor: theme.card }]}>
                   <Picker
                     selectedValue={stateId}
                     onValueChange={(itemValue) => setStateId(itemValue)}
                     enabled={!loadingStates && !!countryId}
-                    style={{ width: '100%' }}
+                    style={{ width: '100%', color: 'black', backgroundColor: theme.card }}
                   >
-                    <Picker.Item label="Select State" value="" />
+                    <Picker.Item label="Select State" value="" color="black" />
                     {states.map((state) => (
-                      <Picker.Item key={state.id} label={state.name} value={String(state.id)} />
+                      <Picker.Item key={state.id} label={state.name} value={String(state.id)} color="black" />
                     ))}
                   </Picker>
-                  {stateError ? <Text style={styles.errorText}>{stateError}</Text> : null}
+                  {stateError ? <Text style={[styles.errorText, { color: theme.error }]}>{stateError}</Text> : null}
                 </View>
               </View>
               <View style={styles.pickerGroup}>
-                <Text style={styles.pickerLabel}>City</Text>
-                <View style={styles.pickerWrapper}>
+                <Text style={[styles.pickerLabel, { color: theme.text }]}>City</Text>
+                <View style={[styles.pickerWrapper, { backgroundColor: theme.card }]}>
                   <Picker
                     selectedValue={cityId}
                     onValueChange={(itemValue) => setCityId(itemValue)}
                     enabled={!loadingCities && !!stateId}
-                    style={{ width: '100%' }}
+                    style={{ width: '100%', color: 'black', backgroundColor: theme.card }}
                   >
-                    <Picker.Item label="Select City" value="" />
+                    <Picker.Item label="Select City" value="" color="black" />
                     {cities.map((city) => (
-                      <Picker.Item key={city.id} label={city.name} value={String(city.id)} />
+                      <Picker.Item key={city.id} label={city.name} value={String(city.id)} color="black" />
                     ))}
                   </Picker>
-                  {cityError ? <Text style={styles.errorText}>{cityError}</Text> : null}
+                  {cityError ? <Text style={[styles.errorText, { color: theme.error }]}>{cityError}</Text> : null}
                 </View>
               </View>
               <Button title={isSubmitting ? 'Saving...' : 'Save Changes'} onPress={handleSubmit} loading={isSubmitting} style={styles.saveButton} />

@@ -264,7 +264,7 @@ export default function TVMDetailsScreen() {
                         <User size={24} color={COLORS.neutral[400]} />
                       </View>
                       <View>
-                        <Text style={[styles.staffName, { color: theme.text }]}>John Doe</Text>
+                        <Text style={[styles.staffName, { color: theme.text }]}>Suman</Text>
                         <Text style={[styles.staffRole, { color: theme.secondaryText }]}>Station Supervisor</Text>
                       </View>
                     </View>
@@ -281,7 +281,7 @@ export default function TVMDetailsScreen() {
                         <User size={24} color={COLORS.neutral[400]} />
                       </View>
                       <View>
-                        <Text style={[styles.staffName, { color: theme.text }]}>Jane Smith</Text>
+                        <Text style={[styles.staffName, { color: theme.text }]}>-</Text>
                         <Text style={[styles.staffRole, { color: theme.secondaryText }]}>Gate Operator</Text>
                       </View>
                     </View>
