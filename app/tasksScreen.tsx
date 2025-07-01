@@ -145,8 +145,8 @@ const styles = StyleSheet.create({
 });
 
 const FILTERS = [
-  { key: 'ALL', label: 'All Tasks' },
   { key: 'MY', label: 'My Tasks' },
+  { key: 'ALL', label: 'All Tasks' },
 ];
 
 export default function TasksScreen() {
@@ -157,7 +157,7 @@ export default function TasksScreen() {
   // const { hasPermission } = usePermissions();
   const [syncState, setSyncState] = useState<'offline' | 'syncing' | 'synced' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
+  const [selectedFilter, setSelectedFilter] = useState<string>('MY');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [devices, setDevices] = useState<{ [key: number]: TVM }>({});
@@ -191,9 +191,14 @@ export default function TasksScreen() {
         throw new Error(response.message || 'Failed to fetch tasks');
       }
 
-      // Use the response directly without additional filtering
-      const taskData = response.taskdata || [];
+      let taskData = response.taskdata || [];
       console.log(`Found ${taskData.length} tasks`);
+
+      // For ALL filter, exclude tasks assigned to the current user
+      if (selectedFilter === 'ALL' && user) {
+        const userId = user.user_id || user.id;
+        taskData = taskData.filter(task => task.assign_user_id !== userId);
+      }
       
       if (taskData.length === 0) {
         console.log('No tasks found for the current filter');

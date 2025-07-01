@@ -644,40 +644,15 @@ export const notificationApi = {
 
 export const updateUser = async (
   userId: number,
-  data: {
-    name: string;
-    email: string;
-    phone: string;
-    role_id: string;
-    address: string;
-    city_id: string;
-    state_id: string;
-    country_id: string;
-    postal_code: string;
-    department_id: string;
-    profile_image?: { uri: string; name: string; type: string } | null;
-  }
+  data: FormData | { [key: string]: any }
 ): Promise<{ status: string; message: string }> => {
-  const formData = new FormData();
-  formData.append('name', data.name);
-  formData.append('email', data.email);
-  formData.append('phone', data.phone);
-  formData.append('role_id', data.role_id);
-  formData.append('address', data.address);
-  formData.append('city_id', data.city_id);
-  formData.append('state_id', data.state_id);
-  formData.append('country_id', data.country_id);
-  formData.append('postal_code', data.postal_code);
-  formData.append('department_id', data.department_id);
-  if (data.profile_image) {
-    formData.append('profile_image', data.profile_image as any);
+  let headers: any = { 'Accept': 'application/json' };
+  if (data instanceof FormData) {
+    headers['Content-Type'] = 'multipart/form-data';
+  } else {
+    headers['Content-Type'] = 'application/json';
   }
-  const response = await api.post(`/user/update/${userId}`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-      'Accept': 'application/json',
-    },
-  });
+  const response = await api.post(`/user/update/${userId}`, data, { headers });
   return response.data;
 };
 

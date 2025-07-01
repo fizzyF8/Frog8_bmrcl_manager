@@ -510,7 +510,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                       </Text>
                     </TouchableOpacity>
                   ))}
-              </View>
+                </View>
               )}
             </View>
 
@@ -555,8 +555,8 @@ const TaskModal: React.FC<TaskModalProps> = ({
                       </TouchableOpacity>
                     )}
                   />
-                  </View>
-                )}
+                </View>
+              )}
             </View>
 
             <View style={styles.formGroup}>

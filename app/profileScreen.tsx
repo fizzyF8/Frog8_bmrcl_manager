@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Switch, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Switch, RefreshControl, ActivityIndicator, Alert, Modal, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
 import { User, Mail, Phone, FileText, LogOut, Moon, Bell, Shield, CircleHelp as HelpCircle, ChevronRight, Calendar, MapPin, Building, ArrowLeft, Camera } from 'lucide-react-native';
@@ -12,6 +12,8 @@ import { getTimeElapsedString } from '@/utils/time';
 import { authApi, updateUser, ProfileResponse } from '@/utils/api';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import ProfileEditModal from '@/components/profile/ProfileEditModal';
+import Icon from 'react-native-vector-icons/Feather';
 // import { usePermissions } from '@/hooks/usePermissions';
 
 export default function ProfileScreen() {
@@ -26,6 +28,9 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState(user?.profile_image_url || '');
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [imageModalVisible, setImageModalVisible] = useState(false);
+  const { width, height } = Dimensions.get('window');
   // const { hasPermission } = usePermissions();
 
   const handleLogout = () => {
@@ -93,16 +98,16 @@ export default function ProfileScreen() {
           type: asset.type || 'image/jpeg',
         };
         const updateData = {
-          name: user?.name || '',
-          email: user?.email || '',
-          phone: user?.phone || '',
-          role_id: user?.role_id !== undefined && user?.role_id !== null ? String(user.role_id) : '1',
-          address: user?.address || '',
-          city_id: user?.city_id ? String(user.city_id) : '',
-          state_id: user?.state_id ? String(user.state_id) : '',
-          country_id: user?.country_id ? String(user.country_id) : '',
-          postal_code: user?.postal_code !== undefined && user?.postal_code !== null ? Number(user.postal_code) : 0,
-          department_id: user?.department_id !== undefined && user?.department_id !== null ? String(user.department_id) : '1',
+          name: user?.name,
+          email: user?.email,
+          phone: user?.phone,
+          role_id: user?.role_id,
+          address: user?.address,
+          city_id: user?.city_id,
+          state_id: user?.state_id,
+          country_id: user?.country_id,
+          postal_code: user?.postal_code,
+          department_id: user?.department_id,
           profile_image: file,
         };
         // @ts-ignore
@@ -119,6 +124,15 @@ export default function ProfileScreen() {
       console.error('Profile image upload error:', error, error.response?.data);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleProfileUpdated = (response: any) => {
+    if (response.status === 'true') {
+      refreshProfile();
+      Alert.alert('Success', response.message || 'Profile updated successfully');
+    } else {
+      Alert.alert('Error', response.message || 'Failed to update profile');
     }
   };
 
@@ -195,25 +209,40 @@ export default function ProfileScreen() {
           />
         }>
         <View style={styles.profileHeader}>
-          <View style={{ position: 'relative' }}>
-            <Image
-              source={{ uri: profileImageUrl || 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg' }}
-              style={styles.profileImage}
-            />
-            <TouchableOpacity
-              style={styles.cameraIconOverlay}
-              onPress={handlePickProfileImage}
-              disabled={uploading}
-              activeOpacity={0.7}
-            >
-              {uploading ? (
-                <ActivityIndicator size={20} color={COLORS.primary.light} />
-              ) : (
-                <Camera size={22} color={COLORS.primary.light} />
-              )}
-            </TouchableOpacity>
+          {/* Profile image with overlay edit icon */}
+          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.sm }}>
+            <View style={{ position: 'relative' }}>
+              <TouchableOpacity onPress={() => setImageModalVisible(true)} activeOpacity={0.8}>
+                <Image
+                  source={{ uri: profileImageUrl || 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg' }}
+                  style={[styles.profileImage, { width: 100, height: 100, borderRadius: 50 }]}
+                />
+              </TouchableOpacity>
+              {/* Overlay edit icon */}
+              <TouchableOpacity
+                onPress={() => setEditModalVisible(true)}
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 70,
+                  backgroundColor: '#fff',
+                  borderRadius: 16,
+                  width: 32,
+                  height: 32,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: COLORS.primary.light,
+                  elevation: 2,
+                }}
+                activeOpacity={0.7}
+              >
+                <Icon name="edit-2" size={18} color={COLORS.primary.light} />
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.profileInfo}>
+          {/* Centered profile info */}
+          <View style={{ marginBottom: SPACING.md, maxWidth: '90%', alignSelf: 'center', paddingHorizontal: 8 }}>
             <Text style={[styles.profileName, { color: theme.text }]}>{user?.name}</Text>
             <View style={styles.roleContainer}>
               <Text style={[styles.profileRole, { color: theme.secondaryText }]}>{user?.role}</Text>
@@ -224,11 +253,11 @@ export default function ProfileScreen() {
                 style={styles.activeStatus}
               />
             </View>
-            <View style={styles.organizationContainer}>
-              <Building size={14} color={theme.secondaryText} />
+            <View style={[styles.organizationContainer, { flexDirection: 'row', flexWrap: 'wrap'}]}> 
+              {/* <Building size={14} color={theme.secondaryText} /> */}
               <Text style={[styles.organizationText, { color: theme.secondaryText }]}>{user?.organization_name}</Text>
             </View>
-            <View style={styles.locationContainer}>
+            <View style={[styles.locationContainer, { flexDirection: 'row', flexWrap: 'wrap'}]}> 
               <MapPin size={14} color={theme.secondaryText} />
               <Text style={[styles.locationText, { color: theme.secondaryText }]}>{`${user?.city}, ${user?.state}, ${user?.country}`}</Text>
             </View>
@@ -314,6 +343,30 @@ export default function ProfileScreen() {
           <LogOut size={20} color={theme.error} />
           <Text style={[styles.logoutText, { color: theme.error }]}>Log Out</Text>
         </TouchableOpacity>
+        <ProfileEditModal
+          visible={editModalVisible}
+          onClose={() => setEditModalVisible(false)}
+          user={user}
+          onProfileUpdated={handleProfileUpdated}
+        />
+        {/* Modal for enlarged profile image */}
+        <Modal
+          visible={imageModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setImageModalVisible(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+            <Image
+              source={{ uri: profileImageUrl || 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg' }}
+              style={{ width: width * 0.9, height: height * 0.6, marginBottom: 24 }}
+              resizeMode="contain"
+            />
+            <TouchableOpacity onPress={() => setImageModalVisible(false)} style={{ padding: 12, backgroundColor: '#fff', borderRadius: 24 }}>
+              <Text style={{ color: '#222', fontWeight: 'bold', fontSize: 16 }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -507,18 +560,5 @@ const styles = StyleSheet.create({
   quickNotesDescription: {
     fontSize: FONT_SIZES.md,
     fontFamily: FONTS.regular,
-  },
-  cameraIconOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    right: 10,
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: COLORS.primary.light,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
   },
 }); 
