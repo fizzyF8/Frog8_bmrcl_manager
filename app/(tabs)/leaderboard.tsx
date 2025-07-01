@@ -47,6 +47,17 @@ interface SalesData {
 
 export default function LeaderboardScreen() {
   const { theme } = useTheme();
+  // --- COMING SOON OVERRIDE ---
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+      <Text style={{ fontSize: 28, fontWeight: 'bold', color: theme.text }}>Coming soon</Text>
+    </View>
+  );
+  // --- END COMING SOON OVERRIDE ---
+
+  /*
+  // --- Original code preserved for future use ---
+  const { theme } = useTheme();
   const { user } = useAuth();
   // const { hasPermission } = usePermissions();
   const [selectedPeriod, setSelectedPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -322,6 +333,8 @@ export default function LeaderboardScreen() {
       </SafeAreaView>
     </ErrorBoundary>
   );
+  // --- End original code ---
+  */
 }
 
 const styles = StyleSheet.create({

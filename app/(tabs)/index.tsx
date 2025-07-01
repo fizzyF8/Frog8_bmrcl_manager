@@ -595,7 +595,7 @@ export default function Dashboard() {
               </View>
             </View>
 
-            <View style={styles.section}>
+            {/* <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>Performance Metrics</Text>
               </View>
@@ -625,9 +625,9 @@ export default function Dashboard() {
                   </View>
                 ))}
               </Card>
-            </View>
+            </View> */}
 
-            <View style={styles.section}>
+            {/* <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Alerts</Text>
                 <TouchableOpacity style={styles.viewAllButton}>
@@ -649,7 +649,7 @@ export default function Dashboard() {
                   <Text style={[styles.alertTime, { color: theme.secondaryText }]}>{alert.time}</Text>
                 </Card>
               ))}
-            </View>
+            </View> */}
           </ScrollView>
         )}
       </SafeAreaView>
