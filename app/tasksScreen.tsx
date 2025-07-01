@@ -211,7 +211,7 @@ export default function TasksScreen() {
 
       setSyncState('synced');
       setLastSyncTime(new Date());
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching tasks:', error);
       setSyncState('error');
     } finally {
@@ -316,14 +316,14 @@ export default function TasksScreen() {
       const response = await taskApi.startTask(taskId);
       
       if (response.status === 'true') {
-        Alert.alert('Success', 'Task started successfully!');
+        Alert.alert('Success', response?.message || 'Unknown error');
         // Refresh tasks and task stats
         await fetchTasks();
         await refreshTaskStats();
       } else {
-        Alert.alert('Error', response.message || 'Failed to start task');
+        Alert.alert('Error', response?.message || 'Unknown error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting task:', error);
       Alert.alert('Error', 'Failed to start task. Please try again.');
     } finally {
@@ -374,12 +374,13 @@ export default function TasksScreen() {
     if (selectedTaskId && taskImageUri) {
       try {
         setShowImageModal(false);
-        await taskApi.completeTask(selectedTaskId, taskImageUri);
-        Alert.alert('Success', 'Task completed successfully!');
+        const response = await taskApi.completeTask(selectedTaskId, taskImageUri);
+        Alert.alert('Success', response?.message || 'Unknown error');
         fetchTasks();
         refreshTaskStats();
-      } catch (error) {
-        Alert.alert('Error', 'Failed to complete task. Please try again.');
+      } catch (error: any) {
+        const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+        Alert.alert('Error', apiMessage);
       } finally {
         setTaskImageUri(null);
         setSelectedTaskId(null);
@@ -403,18 +404,17 @@ export default function TasksScreen() {
             try {
               setSyncState('syncing');
               const response = await taskApi.deleteTask(taskId);
-              
               if (response.status === 'true') {
-                Alert.alert('Success', 'Task deleted successfully!');
+                Alert.alert('Success', response?.message || 'Unknown error');
                 // Refresh tasks and task stats
                 await fetchTasks();
                 await refreshTaskStats();
               } else {
-                Alert.alert('Error', response.message || 'Failed to delete task');
+                Alert.alert('Error', response?.message || 'Unknown error');
               }
-            } catch (error) {
-              console.error('Error deleting task:', error);
-              Alert.alert('Error', 'Failed to delete task. Please try again.');
+            } catch (error: any) {
+              const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+              Alert.alert('Error', apiMessage);
             } finally {
               setSyncState('synced');
             }
@@ -575,9 +575,9 @@ export default function TasksScreen() {
         <TaskModal
           visible={isCreateModalVisible}
           onClose={() => setIsCreateModalVisible(false)}
-          onTaskCreated={() => {
+          onTaskCreated={(response) => {
             setIsCreateModalVisible(false);
-            Alert.alert('Success', 'Task added successfully!');
+            Alert.alert('Success', response?.message || 'Unknown error');
             fetchTasks();
           }}
         />
@@ -587,10 +587,10 @@ export default function TasksScreen() {
             setIsEditModalVisible(false);
             setEditTask(null);
           }}
-          onTaskUpdated={() => {
+          onTaskUpdated={(response) => {
             setIsEditModalVisible(false);
             setEditTask(null);
-            Alert.alert('Success', 'Task updated successfully!');
+            Alert.alert('Success', response?.message || 'Unknown error');
             fetchTasks();
           }}
           initialTask={editTask}

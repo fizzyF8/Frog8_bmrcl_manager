@@ -23,7 +23,6 @@ export default function TVMDetailsScreen() {
 
   useEffect(() => {
     if (id) {
-      console.log('TVM ID from params:', id);
       fetchTVMDetails();
     }
   }, [id]);
@@ -32,21 +31,17 @@ export default function TVMDetailsScreen() {
     try {
       setLoading(true);
       setError(null);
-      console.log('Fetching TVM details for ID:', id);
       const response = await tvmApi.getTVM(Number(id));
-      console.log('TVM details response:', response);
       
       if (response.status === 'true' && response.device) {
-        console.log('TVM device:', response.device);
-        console.log('Device image URL:', response.device.device_image_url);
-        console.log('Station image URL:', response.device.location_details?.station_image_url);
         setTVM(response.device);
       } else {
-        setError(response.message || 'Failed to fetch TVM details');
+        const apiMessage = response.message || 'Failed to fetch TVM details';
+        setError(apiMessage);
       }
-    } catch (err) {
-      console.error('Error fetching TVM details:', err);
-      setError('Failed to fetch TVM details. Please try again.');
+    } catch (err: any) {
+      const apiMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+      setError(apiMessage);
     } finally {
       setLoading(false);
     }

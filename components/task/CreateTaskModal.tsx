@@ -14,8 +14,8 @@ import { useTaskContext } from '@/context/taskContext';
 interface TaskModalProps {
   visible: boolean;
   onClose: () => void;
-  onTaskCreated?: () => void;
-  onTaskUpdated?: () => void;
+  onTaskCreated?: (response: any) => void;
+  onTaskUpdated?: (response: any) => void;
   initialTask?: Task | null;
   isEdit?: boolean;
 }
@@ -100,11 +100,12 @@ const TaskModal: React.FC<TaskModalProps> = ({
         setUsers(filteredUsers);
       } else {
         console.log('No users found in response');
-        Alert.alert('Warning', 'No users available to assign tasks to.');
+        Alert.alert('Warning', response?.message || 'Unknown error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching users:', error);
-      Alert.alert('Error', 'Failed to load users. Please try again.');
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      Alert.alert('Error', apiMessage);
     } finally {
       setIsLoadingUsers(false);
     }
@@ -193,13 +194,13 @@ const TaskModal: React.FC<TaskModalProps> = ({
         await refreshTaskStats();
         
         if (isEdit && onTaskUpdated) {
-          onTaskUpdated();
+          onTaskUpdated(response);
         } else if (onTaskCreated) {
-          onTaskCreated();
+          onTaskCreated(response);
         }
         onClose();
       } else {
-        Alert.alert('Error', response.message || 'Failed to save task');
+        Alert.alert('Error', response?.message || 'Unknown error');
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to save task. Please try again.');

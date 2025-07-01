@@ -358,9 +358,9 @@ function NotesScreen() {
         setLastRefreshTime(new Date());
         setSyncState('synced');
       }
-    } catch (error) {
-      console.error('Error fetching notes:', error);
-      Alert.alert('Error', 'Failed to fetch notes');
+    } catch (error: any) {
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      Alert.alert('Error', apiMessage);
       setSyncState('error');
     } finally {
       setLoading(false);
@@ -398,9 +398,9 @@ function NotesScreen() {
                 setNotes(notes.filter(note => note.id !== id));
                 Alert.alert('Success', 'Note deleted successfully');
               }
-            } catch (error) {
-              console.error('Error deleting note:', error);
-              Alert.alert('Error', 'Failed to delete note');
+            } catch (error: any) {
+              const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+              Alert.alert('Error', apiMessage);
             }
           },
         },
@@ -424,9 +424,9 @@ function NotesScreen() {
       } else {
         throw new Error(response.message || 'Failed to add note');
       }
-    } catch (error) {
-      console.error('Error adding note:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to add note');
+    } catch (error: any) {
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      Alert.alert('Error', apiMessage);
     }
   };
 
@@ -442,9 +442,9 @@ function NotesScreen() {
         setContent('');
         Alert.alert('Success', 'Note updated successfully');
       }
-    } catch (error) {
-      console.error('Error updating note:', error);
-      Alert.alert('Error', 'Failed to update note');
+    } catch (error: any) {
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      Alert.alert('Error', apiMessage);
     }
   };
 

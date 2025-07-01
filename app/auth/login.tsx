@@ -47,8 +47,9 @@ export default function LoginScreen() {
     try {
       await login(email, password);
     } catch (error: any) {
-      setErrors([{ field: 'general', message: error.message || 'Login failed. Please try again.' }]);
-      Alert.alert('Login Error', error.message || 'Login failed. Please try again.');
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      setErrors([{ field: 'general', message: apiMessage }]);
+      Alert.alert('Login Error', apiMessage);
     } finally {
       setIsLoading(false);
     }

@@ -54,12 +54,13 @@ export default function FAQScreen() {
         setSyncState('synced');
         setLastRefreshTime(new Date());
       } else {
-        setError('Invalid FAQ data received');
+        const apiMessage = response.message || 'Unknown error';
+        setError(apiMessage);
         setSyncState('error');
       }
-    } catch (err) {
-      console.error('Error fetching FAQs:', err);
-      setError('Failed to fetch FAQs. Please try again later.');
+    } catch (error: any) {
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      setError(apiMessage);
       setSyncState('error');
     } finally {
       setLoading(false);

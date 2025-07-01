@@ -43,12 +43,14 @@ export default function ProfileScreen() {
         setSyncState('synced');
         setLastSyncTime(new Date());
       } else {
-        setError(response.message || 'Failed to fetch profile');
+        const apiMessage = response.message || 'Failed to fetch profile';
+        setError(apiMessage);
         setSyncState('error');
       }
-    } catch (err) {
-      setError('Failed to fetch profile. Please try again.');
-      console.error('Error fetching profile:', err);
+    } catch (error: any) {
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      setError(apiMessage);
+      console.error('Error fetching profile:', error);
       setSyncState('error');
     } finally {
       setLoading(false);
@@ -111,13 +113,9 @@ export default function ProfileScreen() {
           alert(response.message || 'Failed to update profile image');
         }
       }
-    } catch (err) {
-      const error = err as any;
-      let message = 'Failed to update profile image.';
-      if (error.response && error.response.data) {
-        message += '\n' + JSON.stringify(error.response.data);
-      }
-      alert(message);
+    } catch (error: any) {
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      setError(apiMessage);
       console.error('Profile image upload error:', error, error.response?.data);
     } finally {
       setUploading(false);

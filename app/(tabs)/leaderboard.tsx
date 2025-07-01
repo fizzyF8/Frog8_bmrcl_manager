@@ -113,9 +113,9 @@ export default function LeaderboardScreen() {
 
       setSyncState('synced');
       setLastSyncTime(new Date());
-    } catch (error) {
-      console.error('Error fetching sales data:', error);
-      setError('Failed to fetch sales data. Please try again.');
+    } catch (error: any) {
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      setError(apiMessage);
       setSyncState('error');
     } finally {
       setLoading(false);

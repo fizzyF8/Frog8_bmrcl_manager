@@ -48,15 +48,15 @@ export default function TabLayout() {
       {/* )} */}
       
       {/* {hasPermission('task.view') && ( */}
-        <Tabs.Screen
-          name="tasks"
-          options={{
-            title: 'Tasks',
-            tabBarIcon: ({ color, size }) => (
-              <CheckCircle size={size} color={color} />
-            ),
-          }}
-        />
+      {/* <Tabs.Screen
+        name="tasks"
+        options={{
+          title: 'Tasks',
+          tabBarIcon: ({ color, size }) => (
+            <CheckCircle size={size} color={color} />
+          ),
+        }}
+      /> */}
       {/* )} */}
       
       {/* {hasPermission('attendance.view') && ( */}

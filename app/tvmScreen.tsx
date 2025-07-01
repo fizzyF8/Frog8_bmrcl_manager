@@ -274,13 +274,13 @@ export default function TVMsScreen() {
         setSyncState('synced');
         setLastSyncTime(new Date());
       } else {
-        const errorMessage = tvmResponse.message || 'Failed to fetch TVMs';
-        setError(errorMessage);
+        const apiMessage = tvmResponse.message || 'Failed to fetch TVMs';
+        setError(apiMessage);
         setSyncState('error');
       }
-    } catch (err) {
-      const errorMessage = 'Failed to fetch TVMs. Please try again.';
-      setError(errorMessage);
+    } catch (error: any) {
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      setError(apiMessage);
       setSyncState('error');
     } finally {
       setLoading(false);

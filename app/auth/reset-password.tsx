@@ -81,19 +81,13 @@ export default function ResetPasswordScreen() {
 
     try {
       const response = await authApi.resetPassword(email, newPassword, confirmPassword);
-      if (response.status === 'true') {
-        Alert.alert('Success', 'Password reset successful. Please login with your new password.', [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/auth/login'),
-          },
-        ]);
-      } else {
-        throw new Error(response.message || 'Password reset failed');
-      }
+      Alert.alert('Success', response.message || 'Unknown error', [
+        { text: 'OK', onPress: () => router.replace('/auth/login') }
+      ]);
     } catch (error: any) {
-      setErrors([{ field: 'general', message: error.message || 'Password reset failed. Please try again.' }]);
-      Alert.alert('Reset Error', error.message || 'Password reset failed. Please try again.');
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      setErrors([{ field: 'general', message: apiMessage }]);
+      Alert.alert('Reset Error', apiMessage);
     } finally {
       setIsLoading(false);
     }

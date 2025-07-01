@@ -321,9 +321,7 @@ export const authApi = {
 
   getUsers: async (): Promise<UsersResponse> => {
     try {
-      console.log('Calling getUsers API...');
       const response = await api.get<UsersResponse>('/user/list');
-      console.log('getUsers API response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error in getUsers API call:', error);
@@ -336,7 +334,6 @@ export const tvmApi = {
   getTVMs: async (): Promise<TVMsResponse> => {
     try {
       const response = await api.get('/devices/list');
-      console.log('TVMs API response:', response.data);
       return response;
     } catch (error) {
       console.error('Error fetching TVMs:', error);
@@ -346,9 +343,7 @@ export const tvmApi = {
 
   getTVM: async (id: number): Promise<TVMResponse> => {
     try {
-      console.log('Fetching TVM details for ID:', id);
       const response = await api.get<TVMResponse>(`/devices/show/${id}`);
-      console.log('TVM details API response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error fetching TVM details:', error);
@@ -427,13 +422,10 @@ export const taskApi = {
 
   getMyTasks: async (): Promise<TasksResponse> => {
     try {
-      console.log('Fetching my tasks...');
       const response = await api.get('/tasks/tasklist');
-      console.log('My tasks API response:', response.data);
       
       // Handle both taskData and taskdata keys and ensure we have an array
       const taskData = response.data.taskData || response.data.taskdata || [];
-      console.log('Processed task data:', taskData);
       
       return {
         status: response.data.status,

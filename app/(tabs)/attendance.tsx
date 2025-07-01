@@ -256,47 +256,44 @@ export default function AttendanceScreen() {
       ]);
       setStations(stationsResponse.stations);
       setGates(gatesResponse.gates);
-    } catch (err) {
-      console.error('Error fetching stations and gates:', err);
-      Alert.alert('Error', 'Failed to fetch stations and gates data');
+    } catch (err: any) {
+      const apiMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+      Alert.alert('Error', apiMessage);
     }
   };
 
   const handleSelfAssign = async () => {
-    console.log('Starting self-assign with user:', user); // Debug log
-
     if (!selectedStation || !selectedGate) {
       Alert.alert('Error', 'Please select both station and gate');
       return;
     }
-
     try {
       setAssigningShift(true);
       const today = new Date().toISOString().split('T')[0].replace(/-/g, '/');
-
+      if (!user) {
+        Alert.alert('Error', 'User not found. Please log in again.');
+        setAssigningShift(false);
+        return;
+      }
       const assignData: AssignShiftRequest = {
         assigned_date: today,
-        user_id: 6, // Hardcoded user ID as we know it's 6
+        user_id: user.user_id || user.id,
         shift_id: selectedShift.id,
         station_id: selectedStation.id,
         gate_id: selectedGate.id,
-        organization_id: 1 // Default organization ID
+        organization_id: user.organization_id
       };
-
-      console.log('Assigning shift with data:', assignData); // Debug log
-
       const response = await attendanceApi.assignShift(assignData);
-
       if (response.status === 'true') {
-        Alert.alert('Success', 'Shift assigned successfully');
+        Alert.alert('Success', response.message || 'Unknown error');
         setShowAssignModal(false);
-        fetchAttendance(); // Refresh attendance data
+        fetchAttendance();
       } else {
-        throw new Error(response.message || 'Failed to assign shift');
+        throw new Error(response.message || 'Unknown error');
       }
     } catch (err: any) {
-      console.error('Shift assignment error:', err); // Debug log
-      Alert.alert('Error', err.message || 'Failed to assign shift. Please try again.');
+      const apiMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+      Alert.alert('Error', apiMessage);
     } finally {
       setAssigningShift(false);
     }
@@ -361,7 +358,7 @@ export default function AttendanceScreen() {
       // Prioritize the shift info from the attendance list endpoint if available for today
       if (attendanceResponse.assign_shift && attendanceResponse.assign_shift.length > 0) {
         const shiftFromAttendance = attendanceResponse.assign_shift.find(shift =>
-          shift.user_id === 6 && // Use known user ID
+          shift.user_id === (user?.user_id || user?.id) &&
           new Date(shift.start_date || shift.assigned_date).toISOString().split('T')[0] === todayStr
         );
 
@@ -390,7 +387,7 @@ export default function AttendanceScreen() {
       // If no shift found in the attendance list, check the full assigned shifts list
       if (!currentDayShift && assignShiftResponse.assign_shifts.length > 0) {
         const shiftFromAssignedList = assignShiftResponse.assign_shifts.find(shift =>
-          shift.user_id === 6 && // Use known user ID
+          shift.user_id === (user?.user_id || user?.id) &&
           new Date(shift.assigned_date).toISOString().split('T')[0] === todayStr
         );
 
@@ -426,7 +423,7 @@ export default function AttendanceScreen() {
       console.log('Debug Info:'); // Add debug log
       console.log('Stations data:', stations); // Log stations data
       console.log('Gates data:', gates);     // Log gates data
-      console.log('Current Day Shift object:', currentDayShift); // Log the shift object
+      console.log('Current Day Shift object:', currentDayShift);
 
       // Set attendance history: include all records, and if today's is complete, it will naturally be included.
       // If today's attendance is not complete or doesn't exist, only historical records are shown.
@@ -890,7 +887,7 @@ export default function AttendanceScreen() {
   // Add function to check if user has assigned shifts
   const hasAssignedShifts = () => {
     return assignedShifts.some(shift =>
-      shift.user_id === 6 && // Using known user ID
+      shift.user_id === (user?.user_id || user?.id) &&
       new Date(shift.assigned_date).toISOString().split('T')[0] === new Date().toISOString().split('T')[0]
     );
   };
@@ -1389,48 +1386,6 @@ export default function AttendanceScreen() {
             </Card>
           )}
 
-          {/* Attendance History Card (always visible) */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance History</Text>
-          </View>
-          {attendanceHistory.length === 0 ? (
-            <View style={styles.noHistoryContainer}>
-              <Text style={[styles.noHistoryText, { color: theme.secondaryText }]}>Welcome! No attendance history yet. Your records will appear here after you log your shifts.</Text>
-            </View>
-          ) : (
-            attendanceHistory.map((record, index) => {
-              const assignedShiftForHistory = assignedShifts.find(shift => shift.id === record.user_shift_assignment_id);
-              const historyStationName = assignedShiftForHistory?.station_id
-                ? stations.find(s => s.id === assignedShiftForHistory.station_id)?.name
-                : record.user_shift_assignment?.station?.name || 'Unknown';
-              const historyGateName = assignedShiftForHistory?.gate_id
-                ? gates.find(g => g.id === assignedShiftForHistory.gate_id)?.name
-                : record.user_shift_assignment?.gate?.name || 'Unknown';
-              return (
-                <Card key={index} variant="outlined" style={cardStyle(styles.historyCard)}>
-                  <View style={styles.historyHeader}>
-                    <Text style={[styles.historyDate, { color: theme.text }]}>{formatDate(record.date)}</Text>
-                    <StatusBadge label={record.status} type={getStatusColor(record.status)} size="sm" />
-                  </View>
-                  <View style={styles.historyDetails}>
-                    <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>Station: {historyStationName}</Text>
-                    <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>Gate: {historyGateName}</Text>
-                  </View>
-                  <View style={styles.historyTimes}>
-                    <View style={styles.historyTimeItem}>
-                      <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check In</Text>
-                      <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_in_time ? formatTime(record.check_in_time) : '--:--'}</Text>
-                    </View>
-                    <View style={styles.historyTimeItem}>
-                      <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check Out</Text>
-                      <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_out_time ? formatTime(record.check_out_time) : '--:--'}</Text>
-                    </View>
-                  </View>
-                </Card>
-              );
-            })
-          )}
-
           {/* Main attendance card if shift/attendance exists */}
           {attendance || shiftInfo ? (
             <Card variant="elevated" style={cardStyle(styles.todayCard)}>
@@ -1553,6 +1508,48 @@ export default function AttendanceScreen() {
               </View>
             </Card>
           ) : null}
+
+          {/* Attendance History Card (moved below check-in) */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance History</Text>
+          </View>
+          {attendanceHistory.length === 0 ? (
+            <View style={styles.noHistoryContainer}>
+              <Text style={[styles.noHistoryText, { color: theme.secondaryText }]}>Welcome! No attendance history yet. Your records will appear here after you log your shifts.</Text>
+            </View>
+          ) : (
+            attendanceHistory.map((record, index) => {
+              const assignedShiftForHistory = assignedShifts.find(shift => shift.id === record.user_shift_assignment_id);
+              const historyStationName = assignedShiftForHistory?.station_id
+                ? stations.find(s => s.id === assignedShiftForHistory.station_id)?.name
+                : record.user_shift_assignment?.station?.name || 'Unknown';
+              const historyGateName = assignedShiftForHistory?.gate_id
+                ? gates.find(g => g.id === assignedShiftForHistory.gate_id)?.name
+                : record.user_shift_assignment?.gate?.name || 'Unknown';
+              return (
+                <Card key={index} variant="outlined" style={cardStyle(styles.historyCard)}>
+                  <View style={styles.historyHeader}>
+                    <Text style={[styles.historyDate, { color: theme.text }]}>{formatDate(record.date)}</Text>
+                    <StatusBadge label={record.status} type={getStatusColor(record.status)} size="sm" />
+                  </View>
+                  <View style={styles.historyDetails}>
+                    <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>Station: {historyStationName}</Text>
+                    <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>Gate: {historyGateName}</Text>
+                  </View>
+                  <View style={styles.historyTimes}>
+                    <View style={styles.historyTimeItem}>
+                      <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check In</Text>
+                      <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_in_time ? formatTime(record.check_in_time) : '--:--'}</Text>
+                    </View>
+                    <View style={styles.historyTimeItem}>
+                      <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check Out</Text>
+                      <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_out_time ? formatTime(record.check_out_time) : '--:--'}</Text>
+                    </View>
+                  </View>
+                </Card>
+              );
+            })
+          )}
 
         </ScrollView>
         {renderAssignModal()}

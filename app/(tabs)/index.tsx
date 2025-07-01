@@ -394,10 +394,10 @@ export default function Dashboard() {
 
       setSyncState('synced');
       setLastSyncTime(new Date());
-    } catch (err) {
-      const errorMessage = 'Failed to fetch dashboard data. Please try again.';
-      setError(errorMessage);
-      console.error('Error fetching dashboard data:', err);
+    } catch (error: any) {
+      const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      setError(apiMessage);
+      console.error('Error fetching dashboard data:', error);
       setSyncState('error');
     } finally {
       setLoading(false);
