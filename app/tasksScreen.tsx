@@ -16,6 +16,7 @@ import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/context/auth';
 import { useTaskContext } from '@/context/taskContext';
 import * as ImagePicker from 'expo-image-picker';
+// import { usePermissions } from '@/hooks/usePermissions';
 
 const styles = StyleSheet.create({
   container: {
@@ -153,6 +154,7 @@ export default function TasksScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { refreshTaskStats } = useTaskContext();
+  // const { hasPermission } = usePermissions();
   const [syncState, setSyncState] = useState<'offline' | 'syncing' | 'synced' | 'error'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
@@ -422,109 +424,60 @@ export default function TasksScreen() {
     );
   };
 
+  const handleViewTask = (task: Task) => {
+    // Implement view logic or modal as needed
+    Alert.alert('View Task', `Task: ${task.title}`);
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditTask(task);
+    setIsEditModalVisible(true);
+  };
+
   const renderItem = ({ item }: { item: Task }) => (
-    <Card variant="outlined" style={{ ...styles.taskCard, backgroundColor: theme.card, borderColor: theme.border }}>
+    <Card style={styles.taskCard}>
       <View style={styles.taskHeader}>
         <View style={styles.taskHeaderLeft}>
-          <StatusBadge 
-            label={item.priority} 
-            type={getPriorityType(item.priority)}
-            size="sm"
-          />
-          <StatusBadge 
-            label={item.status} 
-            type={getStatusType(item.status)}
-            size="sm"
-            style={{ marginLeft: SPACING.xs }}
-          />
+          <Text style={styles.taskId}>#{item.id}</Text>
         </View>
-        <Text style={[styles.taskId, { color: theme.secondaryText }]}>{item.id}</Text>
+        <StatusBadge label={item.status} type={getStatusType(item.status)} />
       </View>
-      <Text style={[styles.taskTitle, { color: theme.text }]}>{item.title}</Text>
-      <Text style={[styles.taskDescription, { color: theme.secondaryText }]}>{item.description}</Text>
+      <Text style={styles.taskTitle}>{item.title}</Text>
+      <Text style={styles.taskDescription}>{item.description}</Text>
       <View style={styles.taskDetails}>
-        {item.device_id && devices[item.device_id] && (
-          <View style={styles.taskDetailItem}>
-            <Ticket size={16} color={theme.secondaryText} />
-            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>
-              Device: {devices[item.device_id].name} ({devices[item.device_id].serial_number})
-            </Text>
-          </View>
-        )}
-
-        {item.assign_user_id && users[item.assign_user_id] && (
-          <View style={styles.taskDetailItem}>
-            <User size={16} color={theme.secondaryText} />
-            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>
-              Assigned To: {users[item.assign_user_id].name}
-            </Text>
-          </View>
-        )}
-
-        {item.assign_by && users[item.assign_by] && (
-          <View style={styles.taskDetailItem}>
-            <User size={16} color={theme.secondaryText} />
-            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>
-              Assigned By: {users[item.assign_by].name}
-            </Text>
-          </View>
-        )}
-
-        {item.due_datetime && (
-          <View style={styles.taskDetailItem}>
-            <Calendar size={16} color={theme.secondaryText} />
-            <Text style={[styles.taskDetailText, { color: theme.secondaryText }]}>
-              Due: {formatDate(item.due_datetime)}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {item.status.toLowerCase() !== 'completed' && item.status.toLowerCase() !== 'cancelled' && (
-        <View style={styles.taskActions}>
-          {item.status.toLowerCase() === 'pending' && (
-            <>
-              <Button
-                title="Start Task"
-                size="sm"
-                variant="filled"
-                color="primary"
-                leftIcon={<Clock size={16} color={COLORS.white} />}
-                onPress={() => handleStartTask(item.id)}
-              />
-              <Button
-                title="Edit"
-                size="sm"
-                variant="outlined"
-                color="primary"
-                onPress={() => {
-                  setEditTask(item);
-                  setIsEditModalVisible(true);
-                }}
-                style={{ marginLeft: 8 }}
-              />
-              <Button
-                title="Delete"
-                size="sm"
-                variant="outlined"
-                color="error"
-                onPress={() => handleDeleteTask(item.id)}
-                style={{ marginLeft: 8 }}
-              />
-            </>
-          )}
-          {item.status.toLowerCase() === 'in progress' && (
-            <Button
-              title="Complete Task"
-              size="sm"
-              variant="filled"
-              color="success"
-              leftIcon={<CheckCircle size={16} color={COLORS.white} />}
-              onPress={() => handleCompleteTask(item.id)}
-            />
-          )}
+        <View style={styles.taskDetailItem}>
+          <Clock size={16} color={theme.secondaryText} />
+          <Text style={styles.taskDetailText}>{formatDate(item.due_datetime)}</Text>
         </View>
-      )}
+        <View style={styles.taskDetailItem}>
+          <User size={16} color={theme.secondaryText} />
+          <Text style={styles.taskDetailText}>{users[item.assign_user_id]?.name || 'N/A'}</Text>
+        </View>
+      </View>
+      <View style={styles.taskActions}>
+        <Button
+          title="View"
+          variant="outlined"
+          onPress={() => handleViewTask(item)}
+          style={{ marginRight: SPACING.sm }}
+        />
+        {/* {hasPermission('task.edit') && ( */}
+          <Button
+            title="Edit"
+            variant="outlined"
+            onPress={() => handleEditTask(item)}
+            style={{ marginRight: SPACING.sm }}
+          />
+        {/* )} */}
+        {/* {hasPermission('task.delete') && ( */}
+          <Button
+            title="Delete"
+            variant="outlined"
+            color="error"
+            onPress={() => handleDeleteTask(item.id)}
+          />
+        {/* )} */}
+      </View>
     </Card>
   );
 
@@ -609,13 +562,15 @@ export default function TasksScreen() {
           />
         )}
 
-        {/* Floating Action Button */}
-        <TouchableOpacity
-          style={[styles.fab, { backgroundColor: COLORS.primary.light }]}
-          onPress={() => setIsCreateModalVisible(true)}
-        >
-          <PlusCircle size={24} color={COLORS.white} />
-        </TouchableOpacity>
+        {/* Floating Action Button for Create Task */}
+        {/* {hasPermission('task.create') && ( */}
+          <TouchableOpacity
+            style={[styles.fab, { backgroundColor: COLORS.primary.light }]}
+            onPress={() => setIsCreateModalVisible(true)}
+          >
+            <PlusCircle size={32} color={COLORS.white} />
+          </TouchableOpacity>
+        {/* )} */}
 
         <TaskModal
           visible={isCreateModalVisible}

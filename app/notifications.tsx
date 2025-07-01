@@ -7,6 +7,8 @@ import { Bell, CheckCircle, AlertCircle, Info, Clock, ArrowLeft, Check } from 'l
 import Card from '@/components/ui/Card';
 import { useRouter } from 'expo-router';
 import { notificationApi, Notification } from '@/utils/api';
+// import { usePermissions } from '@/hooks/usePermissions';
+import { useNotificationContext } from '@/context/taskContext';
 
 const getNotificationIcon = (event: string) => {
   // You can customize icons based on event type
@@ -53,6 +55,8 @@ const NotificationsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
+  // const { hasPermission } = usePermissions();
+  const { refreshUnread } = useNotificationContext();
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -75,6 +79,7 @@ const NotificationsScreen = () => {
     try {
       await notificationApi.markNotificationRead(id);
       setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+      await refreshUnread();
     } catch (e) {
       Alert.alert('Error', 'Failed to mark notification as read');
     }
@@ -85,6 +90,7 @@ const NotificationsScreen = () => {
     try {
       await notificationApi.markAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read_at: new Date().toISOString() })));
+      await refreshUnread();
     } catch (e) {
       Alert.alert('Error', 'Failed to mark all as read');
     } finally {
@@ -242,6 +248,16 @@ const NotificationsScreen = () => {
       </TouchableOpacity>
     </Card>
   );
+
+  // if (!hasPermission('notifications.view')) {
+  //   return (
+  //     <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+  //       <Text style={{ color: theme.text, fontSize: FONT_SIZES.lg, fontFamily: FONTS.bold }}>
+  //         You do not have permission to view notifications.
+  //       </Text>
+  //     </SafeAreaView>
+  //   );
+  // }
 
   return (
     <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: theme.background }]}>

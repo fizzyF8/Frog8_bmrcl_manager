@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
 import { faqApi } from '@/utils/api';
+// import { usePermissions } from '@/hooks/usePermissions';
 
 interface FAQItem {
   id: number;
@@ -38,6 +39,7 @@ export default function FAQScreen() {
   const [syncState, setSyncState] = useState<'syncing' | 'synced' | 'error' | 'offline'>('synced');
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // const { hasPermission } = usePermissions();
 
   const fetchFAQs = async () => {
     try {
@@ -145,6 +147,16 @@ export default function FAQScreen() {
       </TouchableOpacity>
     ));
   };
+
+  // if (!hasPermission('faq.view')) {
+  //   return (
+  //     <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+  //       <Text style={{ color: theme.text, fontSize: FONT_SIZES.lg, fontFamily: FONTS.bold }}>
+  //         You do not have permission to view the FAQ.
+  //       </Text>
+  //     </SafeAreaView>
+  //   );
+  // }
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.background }}>

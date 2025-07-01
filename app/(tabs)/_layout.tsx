@@ -4,7 +4,7 @@ import { Tabs } from 'expo-router';
 import { COLORS, FONTS, FONT_SIZES } from '@/constants/theme';
 import { LayoutDashboard, CircleCheck as CheckCircle, Users, User, FileText, Trophy } from 'lucide-react-native';
 import { useTheme } from '@/context/theme';
-import { useRoleAccess } from '@/hooks/useRoleAccess';
+// import { usePermissions } from '@/hooks/usePermissions';
 
 const styles = StyleSheet.create({
   tabBar: {
@@ -20,14 +20,7 @@ const styles = StyleSheet.create({
 
 export default function TabLayout() {
   const { theme } = useTheme();
-  const { 
-    canAccessDashboard,
-    canAccessTasks,
-    canAccessAttendance,
-    canAccessLeaderboard
-  } = useRoleAccess();
-
-  console.log('canAccessAttendance in TabLayout (using hook value): ', canAccessAttendance);
+  // const { hasPermission } = usePermissions();
 
   return (
     <Tabs
@@ -42,7 +35,7 @@ export default function TabLayout() {
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
-      {canAccessDashboard && (
+      {/* {hasPermission('dashboard.view') && ( */}
         <Tabs.Screen
           name="index"
           options={{
@@ -52,9 +45,9 @@ export default function TabLayout() {
             ),
           }}
         />
-      )}
+      {/* )} */}
       
-      {canAccessTasks && (
+      {/* {hasPermission('task.view') && ( */}
         <Tabs.Screen
           name="tasks"
           options={{
@@ -64,26 +57,21 @@ export default function TabLayout() {
             ),
           }}
         />
-      )}
+      {/* )} */}
       
-      {/* Conditionally render Attendance tab or hide its button */}
-      <Tabs.Screen
-        name="attendance"
-        options={{
-          title: 'Attendance',
-          tabBarIcon: ({ color, size }) => (
-            <Users size={size} color={color} />
-          ),
-          tabBarButton: canAccessAttendance ? undefined : () => <View style={{ width: 0, height: 0 }} />,
-          // You can also hide the whole screen if preferred:
-          // headerShown: !canAccessAttendance,
-          // tabBarStyle: canAccessAttendance ? [styles.tabBar, { backgroundColor: theme.card, borderTopColor: theme.border }] : { display: 'none' },
-          // tabBarShowLabel: canAccessAttendance,
-          // tabBarIcon: canAccessAttendance ? ({ color, size }) => (<Users size={size} color={color} />) : () => null,
-        }}
-      />
+      {/* {hasPermission('attendance.view') && ( */}
+        <Tabs.Screen
+          name="attendance"
+          options={{
+            title: 'Attendance',
+            tabBarIcon: ({ color, size }) => (
+              <Users size={size} color={color} />
+            ),
+          }}
+        />
+      {/* )} */}
       
-      {canAccessLeaderboard && (
+      {/* {hasPermission('leaderboard.view') && ( */}
         <Tabs.Screen
           name="leaderboard"
           options={{
@@ -93,7 +81,7 @@ export default function TabLayout() {
             ),
           }}
         />
-      )}
+      {/* )} */}
     </Tabs>
   );
 }

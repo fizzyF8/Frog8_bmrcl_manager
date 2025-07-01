@@ -19,6 +19,7 @@ import { useAuth } from '@/context/auth';
 import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
+// import { usePermissions } from '@/hooks/usePermissions';
 
 const OPERATORS = [
   { id: 1, name: 'Akash', image: 'https://ui-avatars.com/api/?name=Akash&background=2ECC71&color=fff' },
@@ -47,6 +48,7 @@ interface SalesData {
 export default function LeaderboardScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
+  // const { hasPermission } = usePermissions();
   const [selectedPeriod, setSelectedPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -241,6 +243,16 @@ export default function LeaderboardScreen() {
       </TouchableOpacity>
     </View>
   );
+
+  // if (!hasPermission('leaderboard.view')) {
+  //   return (
+  //     <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+  //       <Text style={{ color: theme.text, fontSize: FONT_SIZES.lg, fontFamily: FONTS.bold }}>
+  //         You do not have permission to view the leaderboard.
+  //       </Text>
+  //     </SafeAreaView>
+  //   );
+  // }
 
   if (loading) {
     return (

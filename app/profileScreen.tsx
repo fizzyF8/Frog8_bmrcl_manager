@@ -2,18 +2,20 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Switch, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
-import { User, Mail, Phone, FileText, LogOut, Moon, Bell, Shield, CircleHelp as HelpCircle, ChevronRight, Calendar, MapPin, Building, ArrowLeft } from 'lucide-react-native';
+import { User, Mail, Phone, FileText, LogOut, Moon, Bell, Shield, CircleHelp as HelpCircle, ChevronRight, Calendar, MapPin, Building, ArrowLeft, Camera } from 'lucide-react-native';
 import Card from '@/components/ui/Card';
 import SyncStatus from '@/components/ui/SyncStatus';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { useAuth } from '@/context/auth';
 import { useTheme } from '@/context/theme';
 import { getTimeElapsedString } from '@/utils/time';
-import { authApi, ProfileResponse } from '@/utils/api';
+import { authApi, updateUser, ProfileResponse } from '@/utils/api';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+// import { usePermissions } from '@/hooks/usePermissions';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshProfile } = useAuth();
   const [syncState, setSyncState] = useState<'offline' | 'syncing' | 'synced' | 'error'>('synced');
   const [notifications, setNotifications] = useState(true);
   const { theme, themeType, toggleTheme } = useTheme();
@@ -22,6 +24,9 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const [uploading, setUploading] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState(user?.profile_image_url || '');
+  // const { hasPermission } = usePermissions();
 
   const handleLogout = () => {
     logout();
@@ -59,6 +64,75 @@ export default function ProfileScreen() {
   React.useEffect(() => {
     fetchProfileData();
   }, []);
+
+  React.useEffect(() => {
+    setProfileImageUrl(user?.profile_image_url || '');
+  }, [user]);
+
+  const handlePickProfileImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        alert('Permission to access media library is required!');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setUploading(true);
+        const asset = result.assets[0];
+        const file = {
+          uri: asset.uri,
+          name: asset.fileName || 'profile.jpg',
+          type: asset.type || 'image/jpeg',
+        };
+        const updateData = {
+          name: user?.name || '',
+          email: user?.email || '',
+          phone: user?.phone || '',
+          role_id: user?.role_id !== undefined && user?.role_id !== null ? String(user.role_id) : '1',
+          address: user?.address || '',
+          city_id: user?.city_id ? String(user.city_id) : '',
+          state_id: user?.state_id ? String(user.state_id) : '',
+          country_id: user?.country_id ? String(user.country_id) : '',
+          postal_code: user?.postal_code !== undefined && user?.postal_code !== null ? Number(user.postal_code) : 0,
+          department_id: user?.department_id !== undefined && user?.department_id !== null ? String(user.department_id) : '1',
+          profile_image: file,
+        };
+        // @ts-ignore
+        const response = await updateUser(user?.user_id || user?.id, updateData);
+        if (response.status === 'true') {
+          await refreshProfile();
+        } else {
+          alert(response.message || 'Failed to update profile image');
+        }
+      }
+    } catch (err) {
+      const error = err as any;
+      let message = 'Failed to update profile image.';
+      if (error.response && error.response.data) {
+        message += '\n' + JSON.stringify(error.response.data);
+      }
+      alert(message);
+      console.error('Profile image upload error:', error, error.response?.data);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // if (!hasPermission('profile.view')) {
+  //   return (
+  //     <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+  //       <Text style={{ color: theme.text, fontSize: FONT_SIZES.lg, fontFamily: FONTS.bold }}>
+  //         You do not have permission to view the profile.
+  //       </Text>
+  //     </SafeAreaView>
+  //   );
+  // }
 
   if (loading && !user) {
     return (
@@ -123,10 +197,24 @@ export default function ProfileScreen() {
           />
         }>
         <View style={styles.profileHeader}>
-          <Image
-            source={{ uri: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg' }}
-            style={styles.profileImage}
-          />
+          <View style={{ position: 'relative' }}>
+            <Image
+              source={{ uri: profileImageUrl || 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg' }}
+              style={styles.profileImage}
+            />
+            <TouchableOpacity
+              style={styles.cameraIconOverlay}
+              onPress={handlePickProfileImage}
+              disabled={uploading}
+              activeOpacity={0.7}
+            >
+              {uploading ? (
+                <ActivityIndicator size={20} color={COLORS.primary.light} />
+              ) : (
+                <Camera size={22} color={COLORS.primary.light} />
+              )}
+            </TouchableOpacity>
+          </View>
           <View style={styles.profileInfo}>
             <Text style={[styles.profileName, { color: theme.text }]}>{user?.name}</Text>
             <View style={styles.roleContainer}>
@@ -421,5 +509,18 @@ const styles = StyleSheet.create({
   quickNotesDescription: {
     fontSize: FONT_SIZES.md,
     fontFamily: FONTS.regular,
+  },
+  cameraIconOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 10,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: COLORS.primary.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
   },
 }); 

@@ -14,7 +14,7 @@ import { attendanceApi, Attendance, ShiftAttendanceResponse, Station, Gate, Assi
 import { useTheme } from '@/context/theme';
 import { useAuth } from '@/context/auth';
 import { getTimeElapsedString } from '@/utils/time';
-import { useRoleAccess } from '@/hooks/useRoleAccess';
+// import { usePermissions } from '@/hooks/usePermissions';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { validateLocation, validateTime, validateRequired, ValidationError } from '@/utils/validation';
 
@@ -172,7 +172,7 @@ const formatTime = (dateString: string | null) => {
 export default function AttendanceScreen() {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { canManageShifts } = useRoleAccess();
+  // const { hasPermission } = usePermissions();
   const [attendance, setAttendance] = useState<Attendance | null>(null);
   const [attendanceHistory, setAttendanceHistory] = useState<Attendance[]>([]);
   const [shiftInfo, setShiftInfo] = useState<DisplayShiftInfo | null>(null);
@@ -1280,13 +1280,11 @@ export default function AttendanceScreen() {
   );
 
   const renderNoAttendanceError = () => (
-    <Card variant="elevated" style={cardStyle(styles.emptyStateCard)}>
+    <Card variant="elevated" style={{ ...cardStyle(styles.emptyStateCard), marginBottom: SPACING.md, padding: SPACING.md }}>
       <View style={styles.emptyStateContainer}>
         <AlertCircle size={48} color={theme.secondaryText} />
         <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Shift Assigned</Text>
-        <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
-          You don't have any shifts assigned for today. You can:
-        </Text>
+        <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>You don't have any shifts assigned for today. You can:</Text>
         <View style={styles.emptyStateList}>
           <Text style={[styles.emptyStateListItem, { color: theme.secondaryText }]}>• Self-assign a shift to start working</Text>
           <Text style={[styles.emptyStateListItem, { color: theme.secondaryText }]}>• Contact your supervisor for assistance</Text>
@@ -1373,215 +1371,188 @@ export default function AttendanceScreen() {
             />
           }
         >
-          {!attendance && !shiftInfo ? (
-            renderNoAttendanceError()
-          ) : (
-            <>
-              <Card variant="elevated" style={cardStyle(styles.todayCard)}>
-                <View style={styles.dateHeader}>
-                  <Calendar size={20} color={theme.secondaryText} />
-                  <Text style={[styles.todayText, { color: theme.text }]}>
-                    Today, {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </Text>
-                </View>
-
-                <View style={styles.shiftInfo}>
-                  <Clock size={16} color={theme.secondaryText} />
-                  <Text style={[styles.shiftText, { color: theme.secondaryText }]}>
-                    {shiftInfo ? `${shiftInfo.name} (${shiftInfo.startTime} - ${shiftInfo.endTime})` : '--:--'}
-                  </Text>
-                </View>
-
-                {/* Add display for Station and Gate names */}
-                {shiftInfo?.stationName && (
-                  <View style={styles.shiftInfoDetail}>
-                    <MapPin size={16} color={theme.secondaryText} />
-                    <Text style={[styles.shiftText, { color: theme.secondaryText }]}>
-                      Station: {shiftInfo.stationName}
-                    </Text>
-                  </View>
-                )}
-
-                {shiftInfo?.gateName && (
-                  <View style={styles.shiftInfoDetail}>
-                    <MapPin size={16} color={theme.secondaryText} />
-                    <Text style={[styles.shiftText, { color: theme.secondaryText }]}>
-                      Gate: {shiftInfo.gateName}
-                    </Text>
-                  </View>
-                )}
-
-                {attendance && (
-                  <View style={styles.checkInOutContainer}>
-                    <View style={styles.timeContainer}>
-                      <Text style={[styles.timeLabel, { color: theme.secondaryText }]}>Check In</Text>
-                      <Text style={[styles.timeValue, { color: theme.text }]}>
-                        {attendance.check_in_time ? formatTime(attendance.check_in_time) : '--:--'}
-                      </Text>
-                      {attendance.check_in_latitude && attendance.check_in_longitude && (
-                        <View style={styles.locationContainer}>
-                          <MapPin size={14} color={theme.secondaryText} />
-                          <Text style={[styles.locationText, { color: theme.secondaryText }]}>
-                            {`${attendance.check_in_latitude}, ${attendance.check_in_longitude}`}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    <ArrowRight size={20} color={theme.secondaryText} />
-
-                    <View style={styles.timeContainer}>
-                      <Text style={[styles.timeLabel, { color: theme.secondaryText }]}>Check Out</Text>
-                      <Text style={[styles.timeValue, { color: theme.text }]}>
-                        {attendance.check_out_time ? formatTime(attendance.check_out_time) : '--:--'}
-                      </Text>
-                      {attendance.check_out_latitude && attendance.check_out_longitude && (
-                        <View style={styles.locationContainer}>
-                          <MapPin size={14} color={theme.secondaryText} />
-                          <Text style={[styles.locationText, { color: theme.secondaryText }]}>
-                            {`${attendance.check_out_latitude}, ${attendance.check_out_longitude}`}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                )}
-
-                <View style={styles.statusContainer}>
-                  {!attendance && (
-                    <View style={styles.statusInfo}>
-                      <AlertCircle size={18} color={theme.secondaryText} />
-                      <Text style={[styles.statusText, { color: theme.secondaryText }]}>You haven't checked in yet</Text>
-                    </View>
-                  )}
-
-                  {attendance && !attendance.check_out_time && (
-                    <View style={styles.statusInfo}>
-                      <CheckCircle2 size={18} color={COLORS.success.light} />
-                      <Text style={[styles.statusText, { color: theme.text }]}>You're currently checked in</Text>
-                    </View>
-                  )}
-
-                  {attendance && attendance.check_out_time && (
-                    <View style={styles.statusInfo}>
-                      <CheckCircle2 size={18} color={COLORS.success.light} />
-                      <Text style={[styles.statusText, { color: theme.text }]}>You've completed your shift</Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.actionButtons}>
-                  {/* Show Check In button if shift is present and not checked in */}
-                  {shiftInfo && !attendance && (
-                    <Button
-                      title="Check In"
-                      color="primary"
-                      fullWidth
-                      leftIcon={<Clock size={20} color={COLORS.white} />}
-                      onPress={handleCheckIn}
-                      disabled={checkingIn}
-                    />
-                  )}
-
-                  {/* Show Check Out button if checked in and not checked out */}
-                  {attendance && !attendance.check_out_time && (
-                    <Button
-                      title="Check Out"
-                      color="secondary"
-                      fullWidth
-                      leftIcon={<Clock size={20} color={COLORS.white} />}
-                      onPress={captureCheckoutSelfie}
-                      disabled={checkingOut}
-                    />
-                  )}
-                </View>
-              </Card>
-
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance History</Text>
+          {/* Compact Self Assign Card if no shift/attendance */}
+          {!attendance && !shiftInfo && (
+            <Card variant="elevated" style={{ ...cardStyle(styles.emptyStateCard), marginBottom: SPACING.md, padding: SPACING.md }}> 
+              <View style={{ alignItems: 'center' }}>
+                <AlertCircle size={32} color={theme.secondaryText} style={{ marginBottom: SPACING.sm }} />
+                <Text style={[styles.emptyStateTitle, { color: theme.text, fontSize: FONT_SIZES.lg, marginBottom: SPACING.xs }]}>No Shift Assigned</Text>
+                <Text style={[styles.emptyStateText, { color: theme.secondaryText, fontSize: FONT_SIZES.sm, marginBottom: SPACING.sm }]}>Self-assign a shift to start working.</Text>
+                <Button
+                  title="Self Assign Shift"
+                  color="primary"
+                  onPress={() => setShowAssignModal(true)}
+                  style={{ minWidth: 160 }}
+                  leftIcon={<Calendar size={18} color={COLORS.white} />}
+                />
               </View>
-              {attendanceHistory.length === 0 ? (
-                <View style={styles.noHistoryContainer}>
-                  <Text style={[styles.noHistoryText, { color: theme.secondaryText }]}>
-                    Welcome! No attendance history yet. Your records will appear here after you log your shifts.
-                  </Text>
-                </View>
-              ) : (
-                attendanceHistory.map((record, index) => {
-                  // Find the assigned shift for this attendance record using user_shift_assignment_id
-                  const assignedShiftForHistory = assignedShifts.find(shift =>
-                    shift.id === record.user_shift_assignment_id
-                  );
-
-                  // Find station and gate names using IDs from the assigned shift or the nested object if available
-                  const historyStationName = assignedShiftForHistory?.station_id
-                    ? stations.find(s => s.id === assignedShiftForHistory.station_id)?.name
-                    : record.user_shift_assignment?.station?.name || 'Unknown';
-
-                  const historyGateName = assignedShiftForHistory?.gate_id
-                    ? gates.find(g => g.id === assignedShiftForHistory.gate_id)?.name
-                    : record.user_shift_assignment?.gate?.name || 'Unknown';
-
-                  return (
-                    <Card key={index} variant="outlined" style={cardStyle(styles.historyCard)}>
-                      <View style={styles.historyHeader}>
-                        <Text style={[styles.historyDate, { color: theme.text }]}>{formatDate(record.date)}</Text>
-                        <StatusBadge
-                          label={record.status}
-                          type={getStatusColor(record.status)}
-                          size="sm"
-                        />
-                      </View>
-                      {/* Display Station and Gate details */}
-                      <View style={styles.historyDetails}>
-                        <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>
-                          Station: {historyStationName}
-                        </Text>
-                        <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>
-                          Gate: {historyGateName}
-                        </Text>
-                      </View>
-                      <View style={styles.historyTimes}>
-                        <View style={styles.historyTimeItem}>
-                          <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check In</Text>
-                          <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_in_time ? formatTime(record.check_in_time) : '--:--'}</Text>
-                        </View>
-                        <View style={styles.historyTimeItem}>
-                          <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check Out</Text>
-                          <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_out_time ? formatTime(record.check_out_time) : '--:--'}</Text>
-                        </View>
-                      </View>
-                    </Card>
-                  );
-                })
-              )}
-
-              {canManageShifts && (
-                <Card style={cardStyle(styles.card)}>
-                  <Text style={[styles.cardTitle, { color: theme.text }]}>Shift Management</Text>
-                  <Button
-                    title="Assign Shift"
-                    onPress={() => setShowAssignModal(true)}
-                    style={styles.selfAssignButton}
-                  />
-                </Card>
-              )}
-            </>
-          )}
-
-          {!shiftInfo && !attendance && (
-            <Card variant="elevated" style={cardStyle(styles.emptyStateCard)}>
-
-              <Text style={[styles.emptyStateText, { color: theme.text }]}>
-                No shift assigned for today
-              </Text>
-              <Button
-                title="Self Assign Shift"
-                onPress={() => setShowAssignModal(true)}
-                style={styles.selfAssignButton}
-              />
             </Card>
           )}
+
+          {/* Attendance History Card (always visible) */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance History</Text>
+          </View>
+          {attendanceHistory.length === 0 ? (
+            <View style={styles.noHistoryContainer}>
+              <Text style={[styles.noHistoryText, { color: theme.secondaryText }]}>Welcome! No attendance history yet. Your records will appear here after you log your shifts.</Text>
+            </View>
+          ) : (
+            attendanceHistory.map((record, index) => {
+              const assignedShiftForHistory = assignedShifts.find(shift => shift.id === record.user_shift_assignment_id);
+              const historyStationName = assignedShiftForHistory?.station_id
+                ? stations.find(s => s.id === assignedShiftForHistory.station_id)?.name
+                : record.user_shift_assignment?.station?.name || 'Unknown';
+              const historyGateName = assignedShiftForHistory?.gate_id
+                ? gates.find(g => g.id === assignedShiftForHistory.gate_id)?.name
+                : record.user_shift_assignment?.gate?.name || 'Unknown';
+              return (
+                <Card key={index} variant="outlined" style={cardStyle(styles.historyCard)}>
+                  <View style={styles.historyHeader}>
+                    <Text style={[styles.historyDate, { color: theme.text }]}>{formatDate(record.date)}</Text>
+                    <StatusBadge label={record.status} type={getStatusColor(record.status)} size="sm" />
+                  </View>
+                  <View style={styles.historyDetails}>
+                    <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>Station: {historyStationName}</Text>
+                    <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>Gate: {historyGateName}</Text>
+                  </View>
+                  <View style={styles.historyTimes}>
+                    <View style={styles.historyTimeItem}>
+                      <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check In</Text>
+                      <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_in_time ? formatTime(record.check_in_time) : '--:--'}</Text>
+                    </View>
+                    <View style={styles.historyTimeItem}>
+                      <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check Out</Text>
+                      <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_out_time ? formatTime(record.check_out_time) : '--:--'}</Text>
+                    </View>
+                  </View>
+                </Card>
+              );
+            })
+          )}
+
+          {/* Main attendance card if shift/attendance exists */}
+          {attendance || shiftInfo ? (
+            <Card variant="elevated" style={cardStyle(styles.todayCard)}>
+              <View style={styles.dateHeader}>
+                <Calendar size={20} color={theme.secondaryText} />
+                <Text style={[styles.todayText, { color: theme.text }]}>
+                  Today, {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Text>
+              </View>
+
+              <View style={styles.shiftInfo}>
+                <Clock size={16} color={theme.secondaryText} />
+                <Text style={[styles.shiftText, { color: theme.secondaryText }]}>
+                  {shiftInfo ? `${shiftInfo.name} (${shiftInfo.startTime} - ${shiftInfo.endTime})` : '--:--'}
+                </Text>
+              </View>
+
+              {/* Add display for Station and Gate names */}
+              {shiftInfo?.stationName && (
+                <View style={styles.shiftInfoDetail}>
+                  <MapPin size={16} color={theme.secondaryText} />
+                  <Text style={[styles.shiftText, { color: theme.secondaryText }]}>
+                    Station: {shiftInfo.stationName}
+                  </Text>
+                </View>
+              )}
+
+              {shiftInfo?.gateName && (
+                <View style={styles.shiftInfoDetail}>
+                  <MapPin size={16} color={theme.secondaryText} />
+                  <Text style={[styles.shiftText, { color: theme.secondaryText }]}>
+                    Gate: {shiftInfo.gateName}
+                  </Text>
+                </View>
+              )}
+
+              {attendance && (
+                <View style={styles.checkInOutContainer}>
+                  <View style={styles.timeContainer}>
+                    <Text style={[styles.timeLabel, { color: theme.secondaryText }]}>Check In</Text>
+                    <Text style={[styles.timeValue, { color: theme.text }]}>
+                      {attendance.check_in_time ? formatTime(attendance.check_in_time) : '--:--'}
+                    </Text>
+                    {attendance.check_in_latitude && attendance.check_in_longitude && (
+                      <View style={styles.locationContainer}>
+                        <MapPin size={14} color={theme.secondaryText} />
+                        <Text style={[styles.locationText, { color: theme.secondaryText }]}>
+                          {`${attendance.check_in_latitude}, ${attendance.check_in_longitude}`}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <ArrowRight size={20} color={theme.secondaryText} />
+
+                  <View style={styles.timeContainer}>
+                    <Text style={[styles.timeLabel, { color: theme.secondaryText }]}>Check Out</Text>
+                    <Text style={[styles.timeValue, { color: theme.text }]}>
+                      {attendance.check_out_time ? formatTime(attendance.check_out_time) : '--:--'}
+                    </Text>
+                    {attendance.check_out_latitude && attendance.check_out_longitude && (
+                      <View style={styles.locationContainer}>
+                        <MapPin size={14} color={theme.secondaryText} />
+                        <Text style={[styles.locationText, { color: theme.secondaryText }]}>
+                          {`${attendance.check_out_latitude}, ${attendance.check_out_longitude}`}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.statusContainer}>
+                {!attendance && (
+                  <View style={styles.statusInfo}>
+                    <AlertCircle size={18} color={theme.secondaryText} />
+                    <Text style={[styles.statusText, { color: theme.secondaryText }]}>You haven't checked in yet</Text>
+                  </View>
+                )}
+
+                {attendance && !attendance.check_out_time && (
+                  <View style={styles.statusInfo}>
+                    <CheckCircle2 size={18} color={COLORS.success.light} />
+                    <Text style={[styles.statusText, { color: theme.text }]}>You're currently checked in</Text>
+                  </View>
+                )}
+
+                {attendance && attendance.check_out_time && (
+                  <View style={styles.statusInfo}>
+                    <CheckCircle2 size={18} color={COLORS.success.light} />
+                    <Text style={[styles.statusText, { color: theme.text }]}>You've completed your shift</Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.actionButtons}>
+                {/* Show Check In button if shift is present and not checked in */}
+                {shiftInfo && !attendance && (
+                  <Button
+                    title="Check In"
+                    color="primary"
+                    fullWidth
+                    leftIcon={<Clock size={20} color={COLORS.white} />}
+                    onPress={handleCheckIn}
+                    disabled={checkingIn}
+                  />
+                )}
+
+                {/* Show Check Out button if checked in and not checked out */}
+                {attendance && !attendance.check_out_time && (
+                  <Button
+                    title="Check Out"
+                    color="secondary"
+                    fullWidth
+                    leftIcon={<Clock size={20} color={COLORS.white} />}
+                    onPress={captureCheckoutSelfie}
+                    disabled={checkingOut}
+                  />
+                )}
+              </View>
+            </Card>
+          ) : null}
 
         </ScrollView>
         {renderAssignModal()}

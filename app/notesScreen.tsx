@@ -12,6 +12,7 @@ import SyncStatus from '@/components/ui/SyncStatus';
 import { getTimeElapsedString } from '@/utils/time';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// import { usePermissions } from '@/hooks/usePermissions';
 
 interface Note {
   id: number;
@@ -241,6 +242,7 @@ function NotesScreen() {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSearchFocused = useRef(false);
   const router = useRouter();
+  // const { hasPermission } = usePermissions();
 
   const startHideTimer = () => {
     if (hideTimer.current) {
@@ -474,30 +476,26 @@ function NotesScreen() {
     const message = updatedDate > createdDate ? 'Updated on' : 'Added on';
 
     return (
-      <Card style={{ ...styles.noteCard, backgroundColor: theme.card }}>
+      <Card style={styles.noteCard}>
         <View style={styles.noteHeader}>
-          <Text style={[styles.noteTitle, { color: theme.text }]}>{item.title}</Text>
+          <Text style={styles.noteTitle}>{item.title}</Text>
           <View style={styles.noteActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.background }]}
-              onPress={() => openEditModal(item)}
-            >
-              <Pencil size={20} color={COLORS.warning.light} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.background }]}
-              onPress={() => handleDeleteNote(item.id)}
-            >
-              <Trash2 size={20} color={theme.error} />
-            </TouchableOpacity>
+            {/* {hasPermission('notes.edit') && ( */}
+              <TouchableOpacity style={styles.actionButton} onPress={() => openEditModal(item)}>
+                <Pencil size={18} color={COLORS.primary.light} />
+              </TouchableOpacity>
+            {/* )} */}
+            {/* {hasPermission('notes.delete') && ( */}
+              <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteNote(item.id)}>
+                <Trash2 size={18} color={COLORS.error.light} />
+              </TouchableOpacity>
+            {/* )} */}
           </View>
         </View>
-        <Text style={[styles.noteContent, { color: theme.text }]}>{item.content}</Text>
+        <Text style={styles.noteContent}>{item.content}</Text>
         <View style={styles.noteMetadata}>
-          <Clock size={16} color={theme.secondaryText} />
-          <Text style={[styles.metadataText, { color: theme.secondaryText }]}>
-            {`${message} ${displayDate.toLocaleString()}`}
-          </Text>
+          <Clock size={14} color={COLORS.neutral[500]} />
+          <Text style={styles.metadataText}>{getTimeElapsedString(new Date(item.updated_at))} ago</Text>
         </View>
       </Card>
     );
@@ -580,12 +578,14 @@ function NotesScreen() {
         }
       />
 
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: COLORS.primary.light }]}
-        onPress={openAddModal}
-      >
-        <PlusCircle size={28} color={COLORS.white} />
-      </TouchableOpacity>
+      {/* {hasPermission('notes.create') && ( */}
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: COLORS.primary.light }]}
+          onPress={openAddModal}
+        >
+          <PlusCircle size={32} color={COLORS.white} />
+        </TouchableOpacity>
+      {/* )} */}
 
       <Modal
         visible={modalVisible}

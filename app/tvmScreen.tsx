@@ -11,6 +11,7 @@ import { useTheme } from '@/context/theme';
 import { getTimeElapsedString } from '@/utils/time';
 import { router, useRouter } from 'expo-router';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
+// import { usePermissions } from '@/hooks/usePermissions';
 
 const getStatusType = (status: string) => {
   switch (status) {
@@ -230,6 +231,7 @@ export default function TVMsScreen() {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSearchFocused = useRef(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  // const { hasPermission } = usePermissions();
 
   // Get unique stations from TVMs
   const stations = useMemo(() => {
@@ -417,6 +419,16 @@ export default function TVMsScreen() {
     
     lastScrollY.current = currentScrollY;
   };
+
+  // if (!hasPermission('tvm.view')) {
+  //   return (
+  //     <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+  //       <Text style={{ color: theme.text, fontSize: FONT_SIZES.lg, fontFamily: FONTS.bold }}>
+  //         You do not have permission to view TVMs.
+  //       </Text>
+  //     </SafeAreaView>
+  //   );
+  // }
 
   if (loading) {
     return (
