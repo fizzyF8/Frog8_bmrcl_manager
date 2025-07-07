@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Veriphy-BMRCL",
-    "slug": "Veriphy-BMRCL",
+    "slug": "bolt-expo-nativewind",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -14,7 +14,8 @@
       "buildNumber": "1.0.0",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to the camera to take photos for task completion.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select photos for task completion."
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select photos for task completion.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "web": {
@@ -47,8 +48,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#FFFFFF"
-      },
-      "buildType": "apk"
+      }
     }
   }
 }
