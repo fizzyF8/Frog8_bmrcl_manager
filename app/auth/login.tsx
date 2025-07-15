@@ -8,9 +8,11 @@ import { useAuth } from '@/context/auth';
 import { useRouter } from 'expo-router';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { validateEmail, validateRequired, ValidationError } from '@/utils/validation';
+import { useTheme } from '@/context/theme';
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const { theme, themeType } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -63,25 +65,35 @@ export default function LoginScreen() {
     <ErrorBoundary>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
+        style={[styles.container, { backgroundColor: theme.background }]}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.logoContainer}>
             {/* <View style={styles.logoBackground}> */}
             <View>
-              <Image 
-                source={require('@/assets/images/icon.png')}
-                style={styles.logoImage}
+              <Image
+                source={
+                  themeType === 'light'
+                    ? require('@/assets/images/icon_light.png')
+                    : require('@/assets/images/icon.png')
+                }
+                style={[styles.logoImage, { width: 150, height: 150, marginTop: 100 }]}
                 resizeMode="contain"
               />
             </View>
+            <Text style={{ textAlign: 'center', color: theme.secondaryText, fontSize: FONT_SIZES.md, fontFamily: FONTS.medium, marginBottom: 0 }}>
+              Built for the Field.
+            </Text>
+            <Text style={{ textAlign: 'center', color: theme.secondaryText, fontSize: FONT_SIZES.md, fontFamily: FONTS.medium, marginBottom: 30 }}>
+              Designed for Compliance.
+            </Text>
             {/* <Text style={styles.appName}>Veriphy</Text> */}
             {/* <Text style={styles.tagline}> Field Operations Management System</Text> */}
           </View>
           
-          <View style={styles.formContainer}>
-            <Text style={styles.title}>Sign In</Text>
-            <Text style={styles.subtitle}>Sign in to your account to continue</Text>
+          <View style={[styles.formContainer, { backgroundColor: theme.card }]}>
+            <Text style={[styles.title, { color: theme.text }]}>Sign In</Text>
+            <Text style={[styles.subtitle, { color: theme.secondaryText }]}>Sign in to your account to continue</Text>
             
             {errors.find(error => error.field === 'general') && (
               <Text style={styles.errorText}>{errors.find(error => error.field === 'general')?.message}</Text>
@@ -97,7 +109,7 @@ export default function LoginScreen() {
               }}
               keyboardType="email-address"
               autoCapitalize="none"
-              leftIcon={<Mail size={20} color={COLORS.neutral[500]} />}
+              leftIcon={<Mail size={20} color={theme.secondaryText} />}
               error={getFieldError('email')}
               returnKeyType="next"
               onSubmitEditing={() => {
@@ -115,13 +127,13 @@ export default function LoginScreen() {
                 setErrors(errors.filter(error => error.field !== 'password'));
               }}
               secureTextEntry={!showPassword}
-              leftIcon={<Lock size={20} color={COLORS.neutral[500]} />}
+              leftIcon={<Lock size={20} color={theme.secondaryText} />}
               rightIcon={
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                   {showPassword ? (
-                    <EyeOff size={20} color={COLORS.neutral[500]} />
+                    <EyeOff size={20} color={theme.secondaryText} />
                   ) : (
-                    <Eye size={20} color={COLORS.neutral[500]} />
+                    <Eye size={20} color={theme.secondaryText} />
                   )}
                 </TouchableOpacity>
               }
@@ -134,7 +146,7 @@ export default function LoginScreen() {
               style={styles.forgotPasswordContainer}
               onPress={() => router.push('/auth/reset-password')}
             >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              <Text style={[styles.forgotPasswordText, { color: theme.primary }]}>Forgot Password?</Text>
             </TouchableOpacity>
             
             <Button
@@ -147,8 +159,8 @@ export default function LoginScreen() {
           </View>
           
           <View style={styles.footer}>
-            <Text style={styles.footerText}>© 2025 Frog8. All rights reserved.</Text>
-            <Text style={styles.versionText}>Version 1.0.0</Text>
+            <Text style={[styles.footerText, { color: theme.secondaryText }]}>© 2025 Frog8. All rights reserved.</Text>
+            <Text style={[styles.versionText, { color: theme.secondaryText }]}>Version 1.0.0</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

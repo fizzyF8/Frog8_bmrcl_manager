@@ -460,28 +460,42 @@ export default function TasksScreen() {
         </View>
       </View>
       <View style={styles.taskActions}>
-        <Button
-          title="View"
-          variant="outlined"
-          onPress={() => handleViewTask(item)}
-          style={{ marginRight: SPACING.sm }}
-        />
-        {/* {hasPermission('task.edit') && ( */}
-          <Button
-            title="Edit"
-            variant="outlined"
-            onPress={() => handleEditTask(item)}
-            style={{ marginRight: SPACING.sm }}
-          />
-        {/* )} */}
-        {/* {hasPermission('task.delete') && ( */}
-          <Button
-            title="Delete"
-            variant="outlined"
-            color="error"
-            onPress={() => handleDeleteTask(item.id)}
-          />
-        {/* )} */}
+        {selectedFilter === 'ALL' ? null : (
+          <>
+            {item.status && item.status.toLowerCase() === 'pending' && (
+              <Button
+                title="Start Task"
+                variant="filled"
+                color="success"
+                onPress={() => handleStartTask(item.id)}
+                style={{ marginRight: SPACING.sm }}
+              />
+            )}
+            {item.status && item.status.toLowerCase() === 'in progress' && (
+              <Button
+                title="Complete Task"
+                variant="filled"
+                color="success"
+                onPress={() => handleCompleteTask(item.id)}
+                style={{ marginRight: SPACING.sm }}
+              />
+            )}
+            <Button
+              title="Edit"
+              variant="outlined"
+              onPress={() => handleEditTask(item)}
+              style={{ marginRight: SPACING.sm }}
+              disabled={!!(item.status && item.status.toLowerCase() === 'completed')}
+            />
+            <Button
+              title="Delete"
+              variant="outlined"
+              color="error"
+              onPress={() => handleDeleteTask(item.id)}
+              disabled={!!(item.status && item.status.toLowerCase() === 'completed')}
+            />
+          </>
+        )}
       </View>
     </Card>
   );

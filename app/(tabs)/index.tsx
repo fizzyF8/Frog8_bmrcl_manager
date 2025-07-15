@@ -346,6 +346,7 @@ export default function Dashboard() {
     offline: 0,
     total: 0,
   });
+  const [firstLoad, setFirstLoad] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncState, setSyncState] = useState<'syncing' | 'synced' | 'error'>('synced');
@@ -364,7 +365,7 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
+      if (firstLoad) setLoading(true);
       setRefreshing(true);
       setError(null);
       setSyncState('syncing');
@@ -394,6 +395,7 @@ export default function Dashboard() {
 
       setSyncState('synced');
       setLastSyncTime(new Date());
+      if (firstLoad) setFirstLoad(false);
     } catch (error: any) {
       const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
       setError(apiMessage);
@@ -499,7 +501,7 @@ export default function Dashboard() {
           </View>
         </View>
 
-        {loading ? (
+        {firstLoad ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={COLORS.primary.light} />
           </View>

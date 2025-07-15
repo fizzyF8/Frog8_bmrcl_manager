@@ -49,6 +49,11 @@ const TaskModal: React.FC<TaskModalProps> = ({
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showDeviceDropdown, setShowDeviceDropdown] = useState(false);
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  // Add new state for modal selectors
+  const [modalSelector, setModalSelector] = useState<null | 'priority' | 'user' | 'device'>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date | null>(null);
 
   useEffect(() => {
     if (isEdit && initialTask) {
@@ -113,17 +118,33 @@ const TaskModal: React.FC<TaskModalProps> = ({
     }
   };
 
-  const onChangeDatetime = (event: any, selectedDateTime?: Date) => {
-    if (event.type === 'dismissed' || !selectedDateTime) {
-      setShowDateTimePicker(false);
-      return;
+  const onChangeDate = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (event.type === 'dismissed' || !selectedDate) return;
+    if (Platform.OS === 'android') {
+      setTempDate(selectedDate);
+      setShowTimePicker(true);
+    } else {
+      setDueDateTime(selectedDate);
     }
-    setShowDateTimePicker(false);
-    setDueDateTime(selectedDateTime);
   };
-
+  const onChangeTime = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    if (event.type === 'dismissed' || !selectedTime || !tempDate) return;
+    // Combine date from tempDate and time from selectedTime
+    const combined = new Date(tempDate);
+    combined.setHours(selectedTime.getHours());
+    combined.setMinutes(selectedTime.getMinutes());
+    combined.setSeconds(0);
+    setDueDateTime(combined);
+    setTempDate(null);
+  };
   const showDatetimepicker = () => {
-    setShowDateTimePicker(true);
+    if (Platform.OS === 'android') {
+      setShowDatePicker(true);
+    } else {
+      setShowDateTimePicker(true);
+    }
   };
 
   const formatDateTime = (date: Date) => {
@@ -264,133 +285,94 @@ const TaskModal: React.FC<TaskModalProps> = ({
                   <Text style={[styles.label, { color: theme.text }]}>Priority</Text>
                   <TouchableOpacity
                     style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
-                    onPress={() => {
-                      setShowPriorityDropdown(!showPriorityDropdown);
-                      setShowUserDropdown(false);
-                      setShowDeviceDropdown(false);
-                    }}
+                    onPress={() => setModalSelector('priority')}
                   >
                     <Text style={[styles.inputText, { color: theme.text }]}>{priority}</Text>
                   </TouchableOpacity>
-                  {showPriorityDropdown && (
-                    <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border }]}>
-                      {['Low', 'Medium', 'High'].map((p) => (
-                        <TouchableOpacity
-                          key={p}
-                          style={[
-                            styles.dropdownItem,
-                            { backgroundColor: priority === p ? theme.primary : theme.background },
-                          ]}
-                          onPress={() => {
-                            setPriority(p);
-                            setShowPriorityDropdown(false);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownItemText,
-                              { color: theme.text },
-                              priority === p && { fontFamily: FONTS.bold },
-                            ]}
-                          >
-                            {p}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                  {/* Modal for Priority */}
+                  <Modal visible={modalSelector === 'priority'} transparent animationType="slide" onRequestClose={() => setModalSelector(null)}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+                      <View style={{ backgroundColor: theme.card, borderRadius: 12, width: '80%', maxHeight: 350, padding: 16 }}>
+                        <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginBottom: 12 }}>Select Priority</Text>
+                        <ScrollView>
+                          {['Low', 'Medium', 'High'].map((p) => (
+                            <TouchableOpacity
+                              key={p}
+                              style={{ padding: 16, backgroundColor: priority === p ? '#22C55E' : theme.background, borderRadius: 8, marginBottom: 8 }}
+                              onPress={() => { setPriority(p); setModalSelector(null); }}
+                            >
+                              <Text style={{ color: theme.text, fontFamily: priority === p ? FONTS.bold : FONTS.regular }}>{p}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                        <Button title="Cancel" onPress={() => setModalSelector(null)} style={{ marginTop: 8 }} />
+                      </View>
                     </View>
-                  )}
+                  </Modal>
                 </View>
 
                 <View style={styles.formGroup}>
                   <Text style={[styles.label, { color: theme.text }]}>Assign To</Text>
                   <TouchableOpacity
                     style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
-                    onPress={() => {
-                      setShowUserDropdown(!showUserDropdown);
-                      setShowPriorityDropdown(false);
-                      setShowDeviceDropdown(false);
-                    }}
+                    onPress={() => setModalSelector('user')}
                   >
                     <Text style={[styles.inputText, { color: theme.text }]}>
                       {users.find((u) => u.id === assignUserId)?.name || 'Select User'}
                     </Text>
                   </TouchableOpacity>
-                  {showUserDropdown && (
-                    <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border, maxHeight: 180 }]}>
-                      <FlatList
-                        data={users}
-                        keyExtractor={(u) => u.id.toString()}
-                        renderItem={({ item }) => (
-                          <TouchableOpacity
-                            style={[
-                              styles.dropdownItem,
-                              { backgroundColor: assignUserId === item.id ? theme.primary : theme.background },
-                            ]}
-                            onPress={() => {
-                              setAssignUserId(item.id);
-                              setShowUserDropdown(false);
-                            }}
-                          >
-                            <Text
-                              style={[
-                                styles.dropdownItemText,
-                                { color: theme.text },
-                                assignUserId === item.id && { fontFamily: FONTS.bold },
-                              ]}
+                  {/* Modal for User */}
+                  <Modal visible={modalSelector === 'user'} transparent animationType="slide" onRequestClose={() => setModalSelector(null)}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+                      <View style={{ backgroundColor: theme.card, borderRadius: 12, width: '80%', maxHeight: 350, padding: 16 }}>
+                        <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginBottom: 12 }}>Select User</Text>
+                        <ScrollView>
+                          {users.map((item) => (
+                            <TouchableOpacity
+                              key={item.id}
+                              style={{ padding: 16, backgroundColor: assignUserId === item.id ? '#22C55E' : theme.background, borderRadius: 8, marginBottom: 8 }}
+                              onPress={() => { setAssignUserId(item.id); setModalSelector(null); }}
                             >
-                              {item.name} ({item.role})
-                            </Text>
-                          </TouchableOpacity>
-                        )}
-                      />
+                              <Text style={{ color: theme.text, fontFamily: assignUserId === item.id ? FONTS.bold : FONTS.regular }}>{item.name} ({item.role})</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                        <Button title="Cancel" onPress={() => setModalSelector(null)} style={{ marginTop: 8 }} />
+                      </View>
                     </View>
-                  )}
+                  </Modal>
                 </View>
 
                 <View style={styles.formGroup}>
                   <Text style={[styles.label, { color: theme.text }]}>Device</Text>
                   <TouchableOpacity
                     style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border }]}
-                    onPress={() => {
-                      setShowDeviceDropdown(!showDeviceDropdown);
-                      setShowPriorityDropdown(false);
-                      setShowUserDropdown(false);
-                    }}
+                    onPress={() => setModalSelector('device')}
                   >
                     <Text style={[styles.inputText, { color: theme.text }]}>
                       {devices.find((d) => d.id === deviceId)?.name || 'Select Device'}
                     </Text>
                   </TouchableOpacity>
-                  {showDeviceDropdown && (
-                    <View style={[styles.dropdown, { backgroundColor: theme.background, borderColor: theme.border, maxHeight: 180 }]}>
-                      <FlatList
-                        data={devices}
-                        keyExtractor={(d) => d.id.toString()}
-                        renderItem={({ item }) => (
-                          <TouchableOpacity
-                            style={[
-                              styles.dropdownItem,
-                              { backgroundColor: deviceId === item.id ? theme.primary : theme.background },
-                            ]}
-                            onPress={() => {
-                              setDeviceId(item.id);
-                              setShowDeviceDropdown(false);
-                            }}
-                          >
-                            <Text
-                              style={[
-                                styles.dropdownItemText,
-                                { color: theme.text },
-                                deviceId === item.id && { fontFamily: FONTS.bold },
-                              ]}
+                  {/* Modal for Device */}
+                  <Modal visible={modalSelector === 'device'} transparent animationType="slide" onRequestClose={() => setModalSelector(null)}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+                      <View style={{ backgroundColor: theme.card, borderRadius: 12, width: '80%', maxHeight: 350, padding: 16 }}>
+                        <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginBottom: 12 }}>Select Device</Text>
+                        <ScrollView>
+                          {devices.map((item) => (
+                            <TouchableOpacity
+                              key={item.id}
+                              style={{ padding: 16, backgroundColor: deviceId === item.id ? '#22C55E' : theme.background, borderRadius: 8, marginBottom: 8 }}
+                              onPress={() => { setDeviceId(item.id); setModalSelector(null); }}
                             >
-                              {item.name} ({item.serial_number})
-                            </Text>
-                          </TouchableOpacity>
-                        )}
-                      />
+                              <Text style={{ color: theme.text, fontFamily: deviceId === item.id ? FONTS.bold : FONTS.regular }}>{item.name} ({item.serial_number})</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                        <Button title="Cancel" onPress={() => setModalSelector(null)} style={{ marginTop: 8 }} />
+                      </View>
                     </View>
-                  )}
+                  </Modal>
                 </View>
 
                 <View style={styles.formGroup}>
@@ -401,13 +383,29 @@ const TaskModal: React.FC<TaskModalProps> = ({
                   >
                     <Text style={[styles.inputText, { color: theme.text }]}>{formatDateTime(dueDateTime)}</Text>
                   </TouchableOpacity>
-                  {showDateTimePicker && (
+                  {Platform.OS === 'android' && showDatePicker && (
+                    <DateTimePicker
+                      value={dueDateTime}
+                      mode="date"
+                      display="default"
+                      onChange={onChangeDate}
+                    />
+                  )}
+                  {Platform.OS === 'android' && showTimePicker && (
+                    <DateTimePicker
+                      value={dueDateTime}
+                      mode="time"
+                      display="default"
+                      onChange={onChangeTime}
+                    />
+                  )}
+                  {Platform.OS !== 'android' && showDateTimePicker && (
                     <DateTimePicker
                       testID="dateTimePicker"
                       value={dueDateTime}
                       mode="datetime"
                       display="default"
-                      onChange={onChangeDatetime}
+                      onChange={onChangeDate}
                     />
                   )}
                   {dateTimeError ? <Text style={[styles.errorText, { color: theme.error }]}>{dateTimeError}</Text> : null}
@@ -510,7 +508,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                       key={p}
                       style={[
                         styles.dropdownItem,
-                        { backgroundColor: priority === p ? theme.primary : theme.background },
+                        { backgroundColor: priority === p ? '#22C55E' : theme.background },
                       ]}
                       onPress={() => {
                         setPriority(p);
@@ -555,7 +553,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                       <TouchableOpacity
                         style={[
                           styles.dropdownItem,
-                          { backgroundColor: assignUserId === item.id ? theme.primary : theme.background },
+                          { backgroundColor: assignUserId === item.id ? '#22C55E' : theme.background },
                         ]}
                         onPress={() => {
                           setAssignUserId(item.id);
@@ -601,7 +599,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                       <TouchableOpacity
                         style={[
                           styles.dropdownItem,
-                          { backgroundColor: deviceId === item.id ? theme.primary : theme.background },
+                          { backgroundColor: deviceId === item.id ? '#22C55E' : theme.background },
                         ]}
                         onPress={() => {
                           setDeviceId(item.id);
@@ -638,7 +636,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
                   value={dueDateTime}
                   mode="datetime"
                   display="default"
-                  onChange={onChangeDatetime}
+                  onChange={onChangeDate}
                 />
               )}
               {dateTimeError ? <Text style={[styles.errorText, { color: theme.error }]}>{dateTimeError}</Text> : null}

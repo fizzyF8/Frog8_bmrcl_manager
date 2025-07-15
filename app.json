@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Veriphy-BMRCL",
+    "name": "Frog8-BMRCL",
     "slug": "bolt-expo-nativewind",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon_light.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -46,7 +46,7 @@
         "WRITE_EXTERNAL_STORAGE"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
+        "foregroundImage": "./assets/images/icon_light.png",
         "backgroundColor": "#FFFFFF"
       }
     }

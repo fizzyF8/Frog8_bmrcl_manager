@@ -10,6 +10,7 @@ import { TaskProvider, NotificationProvider } from '@/context/taskContext';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { View, ActivityIndicator, Platform, Text } from 'react-native';
 import { COLORS } from '@/constants/theme';
+import useRequestPermissions from '@/hooks/useRequestPermissions';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -67,6 +68,7 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   useFrameworkReady();
+  useRequestPermissions();
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
