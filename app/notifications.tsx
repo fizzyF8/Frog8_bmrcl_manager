@@ -28,7 +28,11 @@ const getNotificationIcon = (event: string) => {
 
 const formatTimestamp = (timestamp: string | null) => {
   if (!timestamp) return '';
-  const date = new Date(timestamp);
+  let localString = timestamp;
+  if (timestamp.endsWith('Z')) {
+    localString = timestamp.replace(/Z$/, '');
+  }
+  const date = new Date(localString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -40,7 +44,7 @@ const formatTimestamp = (timestamp: string | null) => {
     if (mins === 0) return `${diffHours}h ago`;
     return `${diffHours}h ${mins}m ago`;
   }
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString('en-IN', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, ViewStyle, RefreshControl, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, ViewStyle, RefreshControl, Image, Modal, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -8,7 +8,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import StatusBadge from '@/components/ui/StatusBadge';
 import SyncStatus from '@/components/ui/SyncStatus';
-import { MapPin, Clock, Calendar, ArrowRight, User, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, RefreshCw } from 'lucide-react-native';
+import { MapPin, Clock, Calendar, ArrowRight, User, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, RefreshCw, Plus } from 'lucide-react-native';
 import { AttendanceRecord } from '@/types';
 import { attendanceApi, Attendance, ShiftAttendanceResponse, Station, Gate, AssignShiftRequest, AssignShiftResponse, AssignShift } from '@/utils/api';
 import { useTheme } from '@/context/theme';
@@ -17,6 +17,9 @@ import { getTimeElapsedString } from '@/utils/time';
 // import { usePermissions } from '@/hooks/usePermissions';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { validateLocation, validateTime, validateRequired, ValidationError } from '@/utils/validation';
+import { authApi } from '@/utils/api';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import AttendanceHistoryList from '@/components/attendance/AttendanceHistoryList';
 
 // Mock data
 const today = new Date();
@@ -127,46 +130,151 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 };
 
 // Modify the formatTime function to handle different time string formats without timezone conversion
-const formatTime = (dateString: string | null) => {
+function formatTime(dateString: string | null): string {
   if (!dateString) return '--:--';
+  // If it's an ISO string with 'Z', but backend sends IST as UTC, remove 'Z' and parse as local
+  let localString = dateString;
+  if (dateString.endsWith('Z')) {
+    localString = dateString.replace(/Z$/, '');
+  }
+  // Try to parse as local time
+  const date = new Date(localString);
+  if (!isNaN(date.getTime())) {
+    return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+  // If it's just HH:mm or HH:mm:ss, format as 12-hour time
+  const parts = dateString.split(':');
+  if (parts.length >= 2) {
+    let hour = parseInt(parts[0], 10);
+    const minute = parts[1];
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    if (hour === 0) hour = 12;
+    return `${hour}:${minute.padStart(2, '0')} ${ampm}`;
+  }
+  return dateString;
+}
 
-  let timeString = dateString;
+const MODAL_MAX_HEIGHT = Dimensions.get('window').height * 0.8;
 
-  // If it's an ISO 8601 string (contains 'T'), extract the time part
-  if (dateString.includes('T')) {
-    try {
-      const date = new Date(dateString);
-      if (!isNaN(date.getTime())) {
-        // Extract HH:MM:SS from the Date object based on UTC to avoid local time conversion issues
-        const hours = date.getUTCHours();
-        const minutes = date.getUTCMinutes();
-        const seconds = date.getUTCSeconds();
-        timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      } else {
-        console.warn(`Could not parse ISO 8601 time string: ${dateString}`);
-        return dateString; // Fallback
-      }
-    } catch (error) {
-      console.warn(`Error parsing ISO 8601 time string: ${dateString}`, error);
-      return dateString; // Fallback on error
-    }
+// Move formatDate above AssignedShiftsList
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
+// Helper to format 24-hour time to 12-hour with AM/PM
+function formatReadableTime(time: string) {
+  if (!time) return '';
+  const [hourStr, minuteStr] = time.split(':');
+  let hour = parseInt(hourStr, 10);
+  const minute = minuteStr || '00';
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  hour = hour % 12;
+  if (hour === 0) hour = 12;
+  return `${hour}:${minute} ${ampm}`;
+}
+
+// AssignedShiftsList component
+const AssignedShiftsList = ({ assignedShifts, userRole, userId, userMap, stations, gates, theme }: {
+  assignedShifts: any[];
+  userRole: string;
+  userId: number;
+  userMap: { [id: number]: any };
+  stations: any[];
+  gates: any[];
+  theme: any;
+}) => {
+  // Filter for PR: only show their own assigned shifts
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const filteredShifts = userRole === 'Public Relations'
+    ? assignedShifts.filter(s => {
+        if (s.user_id !== userId) return false;
+        if (!s.assigned_date) return false;
+        const shiftDate = new Date(s.assigned_date);
+        shiftDate.setHours(0, 0, 0, 0);
+        return shiftDate > today;
+      })
+    : assignedShifts;
+
+  // Sort assigned shifts from latest to oldest by assigned_date
+  const sortedShifts = [...filteredShifts].sort((a, b) => {
+    const dateA = new Date(a.assigned_date || a.start_date || a.date);
+    const dateB = new Date(b.assigned_date || b.start_date || b.date);
+    return dateB.getTime() - dateA.getTime();
+  });
+
+  // Use SHIFT_OPTIONS from parent scope
+  const SHIFT_OPTIONS = [
+    { id: 1, name: 'Morning', start_time: '06:00:00', end_time: '14:00:00' },
+    { id: 3, name: 'General', start_time: '09:00:00', end_time: '18:00:00' },
+    { id: 2, name: 'Evening', start_time: '14:00:00', end_time: '23:00:00' },
+  ];
+
+  function getStatusLabel(is_completed: number | boolean) {
+    if (is_completed === 1 || is_completed === true) return 'COMPLETED';
+    return 'ACTIVE';
+  }
+  function getStatusType(is_completed: number | boolean) {
+    if (is_completed === 1 || is_completed === true) return 'success';
+    return 'info';
   }
 
-  // Now, format the extracted or original timeString (HH:MM:SS or similar)
-  const timeParts = timeString.split(':');
-  if (timeParts.length >= 2) {
-    let hours = parseInt(timeParts[0], 10);
-    const minutes = timeParts[1];
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12; // the hour '0' should be '12'
-    const paddedMinutes = minutes.padStart(2, '0');
-    return `${hours}:${paddedMinutes} ${ampm}`;
-  } else {
-    // If parsing fails, return the original string or a default
-    console.warn(`Could not parse time string after extraction: ${dateString}`);
-    return dateString; // Fallback to showing the original string
-  }
+  return (
+    <ScrollView>
+      {sortedShifts.length === 0 ? (
+        <Text style={{ color: '#888', textAlign: 'center', marginTop: 32 }}>No assigned shifts found.</Text>
+      ) : (
+        sortedShifts.map((shift, index) => {
+          const prName = userMap[shift.user_id]?.name || shift.pr_name || shift.user_name || `User #${shift.user_id}`;
+          const shiftObj = SHIFT_OPTIONS.find((opt: any) => opt.id === shift.shift_id);
+          const shiftName = shiftObj?.name || shift.shift_name || `Shift #${shift.shift_id}`;
+          const shiftTime = shiftObj ? `${formatReadableTime(shiftObj.start_time)} to ${formatReadableTime(shiftObj.end_time)}` : '';
+          const stationName = stations.find((s: any) => s.id === shift.station_id)?.name || shift.station_name || `Station #${shift.station_id}`;
+          const gateName = gates.find((g: any) => g.id === shift.gate_id)?.name || shift.gate_name || `Gate #${shift.gate_id}`;
+          return (
+            <Card key={shift.id} variant="outlined" style={{ marginBottom: 12, padding: 12, backgroundColor: theme.card }}>
+              {/* Top row: Date and Status */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.md }}>{formatDate(shift.assigned_date)}</Text>
+                <StatusBadge label={getStatusLabel(shift.is_completed)} type={getStatusType(shift.is_completed)} size="sm" />
+              </View>
+              {/* Station and Gate */}
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: theme.secondaryText, fontFamily: FONTS.regular, fontSize: FONT_SIZES.sm }}>
+                  Station: <Text style={{ color: theme.text, fontFamily: FONTS.bold }}>{stationName}</Text>
+                </Text>
+                <Text style={{ color: theme.secondaryText, fontFamily: FONTS.regular, fontSize: FONT_SIZES.sm }}>
+                  Gate: <Text style={{ color: theme.text, fontFamily: FONTS.bold }}>{gateName}</Text>
+                </Text>
+              </View>
+              {/* Bottom row: Shift name/timing and PR name */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.secondaryText, fontFamily: FONTS.regular, fontSize: FONT_SIZES.sm }}>
+                    Shift - <Text style={{ color: theme.text, fontFamily: FONTS.regular }}>{shiftName}</Text>
+                  </Text>
+                  <Text
+                    style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.sm, flexShrink: 1 }}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {shiftTime}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                  <Text style={{ color: theme.secondaryText, fontFamily: FONTS.regular, fontSize: FONT_SIZES.sm }}>PR</Text>
+                  <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.md }}>{prName}</Text>
+                </View>
+              </View>
+            </Card>
+          );
+        })
+      )}
+    </ScrollView>
+  );
 };
 
 export default function AttendanceScreen() {
@@ -234,6 +342,8 @@ export default function AttendanceScreen() {
   const [showShiftDropdown, setShowShiftDropdown] = useState(false);
   const [showStationDropdown, setShowStationDropdown] = useState(false);
   const [showGateDropdown, setShowGateDropdown] = useState(false);
+  const [showPRDropdown, setShowPRDropdown] = useState(false);
+  const [selectedPR, setSelectedPR] = useState<any>(null);
 
   // Add new state for assigned shifts
   const [assignedShifts, setAssignedShifts] = useState<AssignShift[]>([]);
@@ -242,6 +352,31 @@ export default function AttendanceScreen() {
   const [capturingSelfie, setCapturingSelfie] = useState(false);
   const [showSelfiePreview, setShowSelfiePreview] = useState(false);
   const [tempSelfie, setTempSelfie] = useState<string | null>(null);
+
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const [userMap, setUserMap] = useState<{ [id: number]: any }>({});
+
+  // Add modalSelector state
+  const [modalSelector, setModalSelector] = useState<null | 'pr' | 'shift' | 'station' | 'gate' | 'date'>(null);
+
+  // Add role-based logic and tab state
+  const isTeamLead = user?.role === 'Team Lead';
+  const isPR = user?.role === 'Public Relations';
+  const [activeTab, setActiveTab] = useState<'assigned' | 'history'>('assigned');
+
+  useEffect(() => {
+    authApi.getUsers().then((response) => {
+      if (response && response.user) {
+        const map = response.user.reduce((acc: any, u: any) => {
+          acc[u.id] = u;
+          return acc;
+        }, {});
+        setUserMap(map);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     fetchAttendance();
@@ -857,15 +992,6 @@ export default function AttendanceScreen() {
     fetchAttendance();
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Present':
@@ -892,6 +1018,42 @@ export default function AttendanceScreen() {
     );
   };
 
+  // Add handler for assigning shift
+  const handleAssignShift = async () => {
+    if (!selectedPR || !selectedShift || !selectedStation || !selectedGate || !selectedDate) {
+      Alert.alert('Error', 'Please select all fields.');
+      return;
+    }
+    if (!user) {
+      Alert.alert('Error', 'User not found. Please log in again.');
+      return;
+    }
+    try {
+      setAssigningShift(true);
+      const assignData: AssignShiftRequest = {
+        assigned_date: new Date(selectedDate).toISOString().split('T')[0],
+        user_id: selectedPR.id,
+        shift_id: selectedShift.id,
+        station_id: selectedStation.id,
+        gate_id: selectedGate.id,
+        organization_id: user.organization_id
+      };
+      const response = await attendanceApi.assignShift(assignData);
+      if (response.status === 'true') {
+        Alert.alert('Success', response.message || 'Shift assigned successfully!');
+        setShowAssignModal(false);
+        fetchAttendance();
+      } else {
+        throw new Error(response.message || 'Unknown error');
+      }
+    } catch (err: any) {
+      const apiMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+      Alert.alert('Error', apiMessage);
+    } finally {
+      setAssigningShift(false);
+    }
+  };
+
   const renderAssignModal = () => (
     <Modal
       visible={showAssignModal}
@@ -900,257 +1062,179 @@ export default function AttendanceScreen() {
       onRequestClose={() => setShowAssignModal(false)}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
-          <Text style={[styles.modalTitle, { color: theme.text }]}>Self Assign Shift</Text>
-
-          {/* Shift Dropdown */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Select Shift</Text>
+        <View style={[styles.modalContent, { backgroundColor: theme.background, maxHeight: MODAL_MAX_HEIGHT, padding: 0 }]}> 
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 8 }} showsVerticalScrollIndicator={false}>
+            <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 12 }]}>Assign Shift</Text>
+            {/* Single-column, compact dropdowns */}
+            <View style={{ marginBottom: 10 }}>
+              <Text style={[styles.label, { color: theme.text, marginBottom: 4 }]}>Select PR</Text>
             <TouchableOpacity
-              style={[styles.dropdownButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-              onPress={() => {
-                setShowShiftDropdown(!showShiftDropdown);
-                setShowStationDropdown(false);
-                setShowGateDropdown(false);
-              }}
-            >
-              <View style={styles.dropdownButtonContent}>
-                <View>
-                  <Text style={[styles.dropdownButtonText, { color: theme.text }]}>
-                    {selectedShift.name}
-                  </Text>
-                  <Text style={[styles.dropdownButtonSubtext, { color: theme.secondaryText }]}>
-                    {selectedShift.start_time.slice(0, 5)} - {selectedShift.end_time.slice(0, 5)}
-                  </Text>
+                style={[styles.dropdownButton, { backgroundColor: theme.card, borderColor: COLORS.primary.light, paddingVertical: 10 }]}
+                onPress={() => setModalSelector('pr')}
+              >
+                <Text style={[styles.dropdownButtonText, { color: theme.text }]}>{selectedPR ? selectedPR.name : 'Choose PR'}</Text>
+              </TouchableOpacity>
+              {/* PR Dropdown Modal */}
+              <Modal visible={modalSelector === 'pr'} transparent animationType="slide" onRequestClose={() => setModalSelector(null)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ backgroundColor: theme.card, borderRadius: 12, width: '80%', maxHeight: 350, padding: 16 }}>
+                    <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginBottom: 12 }}>Select PR</Text>
+                    <ScrollView>
+                      {Object.values(userMap).filter(u => u.role === 'Public Relations').map(u => (
+                        <TouchableOpacity
+                          key={u.id}
+                          style={{ padding: 16, backgroundColor: selectedPR?.id === u.id ? COLORS.primary.light : theme.background, borderRadius: 8, marginBottom: 8 }}
+                          onPress={() => { setSelectedPR(u); setModalSelector(null); }}
+                        >
+                          <Text style={{ color: theme.text, fontFamily: selectedPR?.id === u.id ? FONTS.bold : FONTS.regular }}>{u.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                    <Button title="Cancel" onPress={() => setModalSelector(null)} style={{ marginTop: 8 }} />
                 </View>
-                <ArrowRight
-                  size={20}
-                  color={theme.secondaryText}
-                  style={[
-                    styles.dropdownArrow,
-                    showShiftDropdown && styles.dropdownArrowOpen
-                  ]}
-                />
               </View>
+              </Modal>
+            </View>
+            <View style={{ marginBottom: 10 }}>
+              <Text style={[styles.label, { color: theme.text, marginBottom: 4 }]}>Select Shift</Text>
+              <TouchableOpacity
+                style={[styles.dropdownButton, { backgroundColor: theme.card, borderColor: COLORS.primary.light, paddingVertical: 10 }]}
+                onPress={() => setModalSelector('shift')}
+              >
+                <Text style={[styles.dropdownButtonText, { color: theme.text }]}>{selectedShift ? selectedShift.name : 'Choose Shift'}</Text>
             </TouchableOpacity>
-
-            {showShiftDropdown && (
-              <View style={[styles.dropdownList, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                {SHIFT_OPTIONS.map((shift) => (
+              {/* Shift Dropdown Modal */}
+              <Modal visible={modalSelector === 'shift'} transparent animationType="slide" onRequestClose={() => setModalSelector(null)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ backgroundColor: theme.card, borderRadius: 12, width: '80%', maxHeight: 350, padding: 16 }}>
+                    <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginBottom: 12 }}>Select Shift</Text>
+                    <ScrollView>
+                      {SHIFT_OPTIONS.map(shift => (
                   <TouchableOpacity
                     key={shift.id}
-                    style={[
-                      styles.dropdownItem,
-                      selectedShift.id === shift.id && styles.dropdownItemSelected,
-                      { borderBottomColor: theme.border }
-                    ]}
-                    onPress={() => {
-                      setSelectedShift(shift);
-                      setShowShiftDropdown(false);
-                    }}
-                  >
-                    <View style={styles.dropdownItemContent}>
-                      <Text style={[styles.dropdownItemText, { color: theme.text }]}>
-                        {shift.name}
-                      </Text>
-                      <Text style={[styles.dropdownItemSubtext, { color: theme.secondaryText }]}>
-                        {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
-                      </Text>
-                    </View>
-                    {selectedShift.id === shift.id && (
-                      <CheckCircle2 size={20} color={COLORS.primary.light} />
-                    )}
+                          style={{ padding: 16, backgroundColor: selectedShift?.id === shift.id ? COLORS.primary.light : theme.background, borderRadius: 8, marginBottom: 8 }}
+                          onPress={() => { setSelectedShift(shift); setModalSelector(null); }}
+                        >
+                          <Text style={{ color: theme.text, fontFamily: selectedShift?.id === shift.id ? FONTS.bold : FONTS.regular }}>{shift.name}</Text>
                   </TouchableOpacity>
                 ))}
+                    </ScrollView>
+                    <Button title="Cancel" onPress={() => setModalSelector(null)} style={{ marginTop: 8 }} />
               </View>
-            )}
           </View>
-
-          {/* Station Dropdown */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Select Station</Text>
+              </Modal>
+            </View>
+            <View style={{ marginBottom: 10 }}>
+              <Text style={[styles.label, { color: theme.text, marginBottom: 4 }]}>Select Station</Text>
             <TouchableOpacity
-              style={[styles.dropdownButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-              onPress={() => {
-                setShowStationDropdown(!showStationDropdown);
-                setShowShiftDropdown(false);
-                setShowGateDropdown(false);
-              }}
-            >
-              <View style={styles.dropdownButtonContent}>
-                <View>
-                  <Text style={[styles.dropdownButtonText, { color: theme.text }]}>
-                    {selectedStation ? selectedStation.name : 'Select Station'}
-                  </Text>
-                  {selectedStation && (
-                    <Text style={[styles.dropdownButtonSubtext, { color: theme.secondaryText }]}>
-                      {selectedStation.short_name} ({selectedStation.code})
-                    </Text>
-                  )}
-                </View>
-                <ArrowRight
-                  size={20}
-                  color={theme.secondaryText}
-                  style={[
-                    styles.dropdownArrow,
-                    showStationDropdown && styles.dropdownArrowOpen
-                  ]}
-                />
-              </View>
+                style={[styles.dropdownButton, { backgroundColor: theme.card, borderColor: COLORS.primary.light, paddingVertical: 10 }]}
+                onPress={() => setModalSelector('station')}
+              >
+                <Text style={[styles.dropdownButtonText, { color: theme.text }]}>{selectedStation ? selectedStation.name : 'Choose Station'}</Text>
             </TouchableOpacity>
-
-            {showStationDropdown && (
-              <View style={[styles.dropdownList, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                {stations.map((station) => (
+              {/* Station Dropdown Modal */}
+              <Modal visible={modalSelector === 'station'} transparent animationType="slide" onRequestClose={() => setModalSelector(null)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ backgroundColor: theme.card, borderRadius: 12, width: '80%', maxHeight: 350, padding: 16 }}>
+                    <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginBottom: 12 }}>Select Station</Text>
+                    <ScrollView>
+                      {stations.map(station => (
                   <TouchableOpacity
                     key={station.id}
-                    style={[
-                      styles.dropdownItem,
-                      selectedStation?.id === station.id && styles.dropdownItemSelected,
-                      { borderBottomColor: theme.border }
-                    ]}
-                    onPress={() => {
-                      setSelectedStation(station);
-                      setSelectedGate(null); // Reset gate when station changes
-                      setShowStationDropdown(false);
-                    }}
-                  >
-                    <View style={styles.dropdownItemContent}>
-                      <Text style={[styles.dropdownItemText, { color: theme.text }]}>
-                        {station.name}
-                      </Text>
-                      <Text style={[styles.dropdownItemSubtext, { color: theme.secondaryText }]}>
-                        {station.short_name} ({station.code})
-                      </Text>
-                    </View>
-                    {selectedStation?.id === station.id && (
-                      <CheckCircle2 size={20} color={COLORS.primary.light} />
-                    )}
+                          style={{ padding: 16, backgroundColor: selectedStation?.id === station.id ? COLORS.primary.light : theme.background, borderRadius: 8, marginBottom: 8 }}
+                          onPress={() => { setSelectedStation(station); setModalSelector(null); setSelectedGate(null); }}
+                        >
+                          <Text style={{ color: theme.text, fontFamily: selectedStation?.id === station.id ? FONTS.bold : FONTS.regular }}>{station.name}</Text>
                   </TouchableOpacity>
                 ))}
+                    </ScrollView>
+                    <Button title="Cancel" onPress={() => setModalSelector(null)} style={{ marginTop: 8 }} />
               </View>
-            )}
           </View>
-
-          {/* Gate Dropdown */}
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.text }]}>Select Gate</Text>
+              </Modal>
+            </View>
+            <View style={{ marginBottom: 10 }}>
+              <Text style={[styles.label, { color: theme.text, marginBottom: 4 }]}>Select Gate</Text>
             <TouchableOpacity
-              style={[
-                styles.dropdownButton,
-                { backgroundColor: theme.card, borderColor: theme.border },
-                !selectedStation && styles.dropdownButtonDisabled
-              ]}
-              onPress={() => {
-                if (selectedStation) {
-                  setShowGateDropdown(!showGateDropdown);
-                  setShowShiftDropdown(false);
-                  setShowStationDropdown(false);
-                }
-              }}
+                style={[styles.dropdownButton, { backgroundColor: theme.card, borderColor: COLORS.primary.light, paddingVertical: 10 }]}
+                onPress={() => selectedStation && setModalSelector('gate')}
               disabled={!selectedStation}
             >
-              <View style={styles.dropdownButtonContent}>
-                <View>
-                  <Text style={[
-                    styles.dropdownButtonText,
-                    { color: selectedStation ? theme.text : theme.secondaryText }
-                  ]}>
-                    {selectedGate ? `${selectedGate.name} (${selectedGate.type})` : 'Select Gate'}
-                  </Text>
-                  {selectedGate && selectedStation && (
-                    <Text style={[styles.dropdownButtonSubtext, { color: theme.secondaryText }]}>
-                      {selectedStation.name}
-                    </Text>
-                  )}
-                </View>
-                <ArrowRight
-                  size={20}
-                  color={theme.secondaryText}
-                  style={[
-                    styles.dropdownArrow,
-                    showGateDropdown && styles.dropdownArrowOpen
-                  ]}
-                />
-              </View>
+                <Text style={[styles.dropdownButtonText, { color: selectedStation ? theme.text : theme.secondaryText }]}>{selectedGate ? selectedGate.name : 'Choose Gate'}</Text>
             </TouchableOpacity>
-
-            {showGateDropdown && selectedStation && (
-              <View style={[styles.dropdownList, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                {gates
-                  .filter(gate => gate.station_id === selectedStation.id)
-                  .map((gate) => (
+              {/* Gate Dropdown Modal */}
+              <Modal visible={modalSelector === 'gate'} transparent animationType="slide" onRequestClose={() => setModalSelector(null)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ backgroundColor: theme.card, borderRadius: 12, width: '80%', maxHeight: 350, padding: 16 }}>
+                    <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginBottom: 12 }}>Select Gate</Text>
+                    <ScrollView>
+                      {gates.filter(gate => gate.station_id === selectedStation?.id).map(gate => (
                     <TouchableOpacity
                       key={gate.id}
-                      style={[
-                        styles.dropdownItem,
-                        selectedGate?.id === gate.id && styles.dropdownItemSelected,
-                        { borderBottomColor: theme.border }
-                      ]}
-                      onPress={() => {
-                        setSelectedGate(gate);
-                        setShowGateDropdown(false);
-                      }}
-                    >
-                      <View style={styles.dropdownItemContent}>
-                        <Text style={[styles.dropdownItemText, { color: theme.text }]}>
-                          {gate.name}
-                        </Text>
-                        <Text style={[styles.dropdownItemSubtext, { color: theme.secondaryText }]}>
-                          {gate.type}
-                        </Text>
-                      </View>
-                      {selectedGate?.id === gate.id && (
-                        <CheckCircle2 size={20} color={COLORS.primary.light} />
-                      )}
+                          style={{ padding: 16, backgroundColor: selectedGate?.id === gate.id ? COLORS.primary.light : theme.background, borderRadius: 8, marginBottom: 8 }}
+                          onPress={() => { setSelectedGate(gate); setModalSelector(null); }}
+                        >
+                          <Text style={{ color: theme.text, fontFamily: selectedGate?.id === gate.id ? FONTS.bold : FONTS.regular }}>{gate.name}</Text>
                     </TouchableOpacity>
                   ))}
+                    </ScrollView>
+                    <Button title="Cancel" onPress={() => setModalSelector(null)} style={{ marginTop: 8 }} />
               </View>
-            )}
           </View>
-
-          <View style={styles.selectedShiftSummary}>
-            <Text style={[styles.summaryTitle, { color: theme.text }]}>Selected Shift Details</Text>
-            <View style={[styles.summaryContent, { backgroundColor: theme.card }]}>
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: theme.secondaryText }]}>Shift:</Text>
-                <Text style={[styles.summaryValue, { color: theme.text }]}>{selectedShift.name}</Text>
+              </Modal>
               </View>
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: theme.secondaryText }]}>Time:</Text>
-                <Text style={[styles.summaryValue, { color: theme.text }]}>
-                  {selectedShift.start_time.slice(0, 5)} - {selectedShift.end_time.slice(0, 5)}
-                </Text>
+            <View style={{ marginBottom: 10 }}>
+              <Text style={[styles.label, { color: theme.text, marginBottom: 4 }]}>Assign Date</Text>
+              <TouchableOpacity
+                style={[styles.dropdownButton, { backgroundColor: theme.card, borderColor: COLORS.primary.light, paddingVertical: 10 }]}
+                onPress={() => setModalSelector('date')}
+              >
+                <Text style={[styles.dropdownButtonText, { color: theme.text }]}>{selectedDate ? formatDate(selectedDate) : 'Select Date'}</Text>
+              </TouchableOpacity>
+              {/* Date Picker Modal */}
+              <Modal visible={modalSelector === 'date'} transparent animationType="slide" onRequestClose={() => setModalSelector(null)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ backgroundColor: theme.card, borderRadius: 12, width: '80%', padding: 16 }}>
+                    <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginBottom: 12 }}>Select Date</Text>
+                    <DateTimePicker
+                      value={selectedDate ? new Date(selectedDate) : new Date()}
+                      mode="date"
+                      display="default"
+                      onChange={(event, date) => {
+                        if (event.type === 'dismissed' || !date) {
+                          setModalSelector(null);
+                          return;
+                        }
+                        setSelectedDate(date.toISOString());
+                        setModalSelector(null);
+                      }}
+                    />
+                    <Button title="Cancel" onPress={() => setModalSelector(null)} style={{ marginTop: 8 }} />
               </View>
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: theme.secondaryText }]}>Station:</Text>
-                <Text style={[styles.summaryValue, { color: theme.text }]}>
-                  {selectedStation ? `${selectedStation.name} (${selectedStation.short_name})` : 'Not selected'}
-                </Text>
               </View>
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: theme.secondaryText }]}>Gate:</Text>
-                <Text style={[styles.summaryValue, { color: theme.text }]}>
-                  {selectedGate ? `${selectedGate.name} (${selectedGate.type})` : 'Not selected'}
-                </Text>
+              </Modal>
               </View>
+            {/* Summary Card - compact and visually distinct */}
+            <View style={[styles.summaryCard, { backgroundColor: theme.card, borderColor: COLORS.primary.light, marginTop: 8, padding: 8 }]}> 
+              <Text style={[styles.summaryTitle, { color: theme.text, marginBottom: 4 }]}>Summary</Text>
+              <Text style={[styles.summaryItem, { color: theme.text }]}>PR: {selectedPR ? selectedPR.name : '-'}</Text>
+              <Text style={[styles.summaryItem, { color: theme.text }]}>Shift: {selectedShift ? selectedShift.name : '-'}</Text>
+              <Text style={[styles.summaryItem, { color: theme.text }]}>Station: {selectedStation ? selectedStation.name : '-'}</Text>
+              <Text style={[styles.summaryItem, { color: theme.text }]}>Gate: {selectedGate ? selectedGate.name : '-'}</Text>
+              <Text style={[styles.summaryItem, { color: theme.text }]}>Date: {selectedDate ? formatDate(selectedDate) : '-'}</Text>
             </View>
-          </View>
-
-          <View style={styles.modalButtons}>
+            {/* Action Buttons - full width, stacked */}
+            <View style={{ marginTop: 12, gap: 8 }}>
             <Button
-              title="Cancel"
-              onPress={() => setShowAssignModal(false)}
-              variant="outlined"
-              style={styles.modalButton}
-            />
-            <Button
-              title={assigningShift ? "Assigning..." : "Assign Shift"}
-              onPress={handleSelfAssign}
-              disabled={assigningShift || !selectedStation || !selectedGate}
-              style={styles.modalButton}
-            />
+                title="Assign Shift"
+                color="primary"
+                style={{ ...styles.modalButton, width: '100%', marginHorizontal: 0 }}
+                onPress={handleAssignShift}
+                disabled={!(selectedPR && selectedShift && selectedStation && selectedGate && selectedDate) || assigningShift}
+              />
+              <Button title="Cancel" variant="outlined" onPress={() => setShowAssignModal(false)} style={{ ...styles.modalButton, width: '100%', marginHorizontal: 0 }} />
           </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -1289,7 +1373,7 @@ export default function AttendanceScreen() {
         </View>
         <View style={styles.emptyStateButtons}>
           <Button
-            title="Self Assign Shift"
+            title="Assign Shift"
             color="primary"
             onPress={() => setShowAssignModal(true)}
             style={styles.emptyStateButton}
@@ -1356,39 +1440,21 @@ export default function AttendanceScreen() {
             <SyncStatus state={syncState} lastSynced={getTimeElapsedString(lastSyncTime)} />
           )}
         </View>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[COLORS.primary.light]}
-              tintColor={COLORS.primary.light}
-            />
-          }
-        >
-          {/* Compact Self Assign Card if no shift/attendance */}
+
+        {/* Compact Self Assign Card if no shift/attendance - NON-SCROLLING */}
           {!attendance && !shiftInfo && (
-            <Card variant="elevated" style={{ ...cardStyle(styles.emptyStateCard), marginBottom: SPACING.md, padding: SPACING.md }}> 
+          <Card variant="elevated" style={{ ...cardStyle(styles.emptyStateCard), marginHorizontal: SPACING.md, marginTop: SPACING.md, padding: SPACING.md }}>
               <View style={{ alignItems: 'center' }}>
                 <AlertCircle size={32} color={theme.secondaryText} style={{ marginBottom: SPACING.sm }} />
                 <Text style={[styles.emptyStateTitle, { color: theme.text, fontSize: FONT_SIZES.lg, marginBottom: SPACING.xs }]}>No Shift Assigned</Text>
-                <Text style={[styles.emptyStateText, { color: theme.secondaryText, fontSize: FONT_SIZES.sm, marginBottom: SPACING.sm }]}>Self-assign a shift to start working.</Text>
-                <Button
-                  title="Self Assign Shift"
-                  color="primary"
-                  onPress={() => setShowAssignModal(true)}
-                  style={{ minWidth: 160 }}
-                  leftIcon={<Calendar size={18} color={COLORS.white} />}
-                />
+              <Text style={[styles.emptyStateText, { color: theme.secondaryText, fontSize: FONT_SIZES.sm, marginBottom: SPACING.sm }]}>Please contact your Team Lead for shift assignment.</Text>
               </View>
             </Card>
           )}
 
-          {/* Main attendance card if shift/attendance exists */}
+        {/* Main attendance card if shift/attendance exists - NON-SCROLLING */}
           {attendance || shiftInfo ? (
-            <Card variant="elevated" style={cardStyle(styles.todayCard)}>
+          <Card variant="elevated" style={{ ...cardStyle(styles.todayCard), marginHorizontal: SPACING.md, marginTop: SPACING.md }}>
               <View style={styles.dateHeader}>
                 <Calendar size={20} color={theme.secondaryText} />
                 <Text style={[styles.todayText, { color: theme.text }]}>
@@ -1458,28 +1524,11 @@ export default function AttendanceScreen() {
                 </View>
               )}
 
-              <View style={styles.statusContainer}>
-                {!attendance && (
-                  <View style={styles.statusInfo}>
-                    <AlertCircle size={18} color={theme.secondaryText} />
-                    <Text style={[styles.statusText, { color: theme.secondaryText }]}>You haven't checked in yet</Text>
+            {selfieImage && (
+            <View style={styles.selfieContainer}>
+              <Image source={{ uri: selfieImage }} style={styles.selfieImage} />
                   </View>
                 )}
-
-                {attendance && !attendance.check_out_time && (
-                  <View style={styles.statusInfo}>
-                    <CheckCircle2 size={18} color={COLORS.success.light} />
-                    <Text style={[styles.statusText, { color: theme.text }]}>You're currently checked in</Text>
-                  </View>
-                )}
-
-                {attendance && attendance.check_out_time && (
-                  <View style={styles.statusInfo}>
-                    <CheckCircle2 size={18} color={COLORS.success.light} />
-                    <Text style={[styles.statusText, { color: theme.text }]}>You've completed your shift</Text>
-                  </View>
-                )}
-              </View>
 
               <View style={styles.actionButtons}>
                 {/* Show Check In button if shift is present and not checked in */}
@@ -1509,52 +1558,125 @@ export default function AttendanceScreen() {
             </Card>
           ) : null}
 
-          {/* Attendance History Card (moved below check-in) */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance History</Text>
+        {/* TL: Tabs for Assigned Shifts and Attendance History */}
+        {isTeamLead && (
+          <View style={{ flexDirection: 'row', marginHorizontal: 12, marginBottom: 12, marginTop: SPACING.lg, borderRadius: 8, backgroundColor: theme.card, borderWidth: 1, borderColor: COLORS.primary.light }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                padding: 12,
+                alignItems: 'center',
+                borderRadius: 8,
+                backgroundColor: activeTab === 'assigned' ? COLORS.primary.light : theme.card,
+              }}
+              onPress={() => setActiveTab('assigned')}
+            >
+              <Text style={{ color: activeTab === 'assigned' ? COLORS.white : theme.text, fontFamily: FONTS.bold }}>Assigned Shifts</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                padding: 12,
+                alignItems: 'center',
+                borderRadius: 8,
+                backgroundColor: activeTab === 'history' ? COLORS.primary.light : theme.card,
+              }}
+              onPress={() => setActiveTab('history')}
+            >
+              <Text style={{ color: activeTab === 'history' ? COLORS.white : theme.text, fontFamily: FONTS.bold }}>Attendance History</Text>
+            </TouchableOpacity>
           </View>
-          {attendanceHistory.length === 0 ? (
-            <View style={styles.noHistoryContainer}>
-              <Text style={[styles.noHistoryText, { color: theme.secondaryText }]}>Welcome! No attendance history yet. Your records will appear here after you log your shifts.</Text>
-            </View>
-          ) : (
-            attendanceHistory.map((record, index) => {
-              const assignedShiftForHistory = assignedShifts.find(shift => shift.id === record.user_shift_assignment_id);
-              const historyStationName = assignedShiftForHistory?.station_id
-                ? stations.find(s => s.id === assignedShiftForHistory.station_id)?.name
-                : record.user_shift_assignment?.station?.name || 'Unknown';
-              const historyGateName = assignedShiftForHistory?.gate_id
-                ? gates.find(g => g.id === assignedShiftForHistory.gate_id)?.name
-                : record.user_shift_assignment?.gate?.name || 'Unknown';
-              return (
-                <Card key={index} variant="outlined" style={cardStyle(styles.historyCard)}>
-                  <View style={styles.historyHeader}>
-                    <Text style={[styles.historyDate, { color: theme.text }]}>{formatDate(record.date)}</Text>
-                    <StatusBadge label={record.status} type={getStatusColor(record.status)} size="sm" />
-                  </View>
-                  <View style={styles.historyDetails}>
-                    <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>Station: {historyStationName}</Text>
-                    <Text style={[styles.historyDetailText, { color: theme.secondaryText }]}>Gate: {historyGateName}</Text>
-                  </View>
-                  <View style={styles.historyTimes}>
-                    <View style={styles.historyTimeItem}>
-                      <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check In</Text>
-                      <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_in_time ? formatTime(record.check_in_time) : '--:--'}</Text>
-                    </View>
-                    <View style={styles.historyTimeItem}>
-                      <Text style={[styles.historyTimeLabel, { color: theme.secondaryText }]}>Check Out</Text>
-                      <Text style={[styles.historyTimeValue, { color: theme.text }]}>{record.check_out_time ? formatTime(record.check_out_time) : '--:--'}</Text>
-                    </View>
-                  </View>
-                </Card>
-              );
-            })
-          )}
+        )}
 
+        <ScrollView
+          style={[styles.scrollView, { marginTop: 0 }]}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.primary.light]}
+              tintColor={COLORS.primary.light}
+            />
+          }
+        >
+          {/* TL: Show tab content */}
+          {isTeamLead && activeTab === 'assigned' && (
+            <AssignedShiftsList
+              assignedShifts={assignedShifts}
+              userRole={user.role}
+              userId={user.id ?? user.user_id ?? 0}
+              userMap={userMap}
+              stations={stations}
+              gates={gates}
+              theme={theme}
+            />
+          )}
+          {isTeamLead && activeTab === 'history' && (
+            <AttendanceHistoryList
+              attendanceHistory={attendanceHistory}
+              assignedShifts={assignedShifts}
+              stations={stations}
+              gates={gates}
+              theme={theme}
+            />
+          )}
+          {/* PR: Show only their assigned shifts and attendance history (no tabs, no assign button) */}
+          {isPR && (
+            (() => {
+              // Compute filtered future shifts for PRs (same logic as AssignedShiftsList)
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const prId = user.id ?? user.user_id ?? 0;
+              const futureShifts = assignedShifts.filter(s => {
+                if (s.user_id !== prId) return false;
+                if (!s.assigned_date) return false;
+                const shiftDate = new Date(s.assigned_date);
+                shiftDate.setHours(0, 0, 0, 0);
+                return shiftDate > today;
+              });
+              return (
+                <>
+                  {futureShifts.length > 0 && (
+                    <>
+                      <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginTop: 16, marginBottom: 8 }}>Assigned Shifts</Text>
+                      <AssignedShiftsList
+                        assignedShifts={assignedShifts}
+                        userRole={user.role}
+                        userId={prId}
+                        userMap={userMap}
+                        stations={stations}
+                        gates={gates}
+                        theme={theme}
+                      />
+                      <View style={{ height: 24 }} />
+                    </>
+                  )}
+                  <Text style={{ color: theme.text, fontFamily: FONTS.bold, fontSize: FONT_SIZES.lg, marginBottom: 8 }}>Attendance History</Text>
+                  <AttendanceHistoryList
+                    attendanceHistory={attendanceHistory}
+                    assignedShifts={assignedShifts}
+                    stations={stations}
+                    gates={gates}
+                    theme={theme}
+                  />
+                </>
+              );
+            })()
+          )}
         </ScrollView>
         {renderAssignModal()}
         {renderSelfiePreview()}
         {renderCheckoutSelfiePreview()}
+
+        {isTeamLead && activeTab === 'assigned' && (
+          <TouchableOpacity
+            style={styles.floatingActionButton}
+            onPress={() => setShowAssignModal(true)}
+          >
+            <Plus size={28} color={COLORS.white} />
+          </TouchableOpacity>
+        )}
       </SafeAreaView>
     </ErrorBoundary>
   );
@@ -1580,7 +1702,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: 80, // To avoid FAB overlapping content
   },
   loadingContainer: {
     flex: 1,
@@ -1869,7 +1992,18 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontFamily: FONTS.bold,
     fontSize: FONT_SIZES.md,
-    marginBottom: SPACING.sm,
+    marginBottom: 8,
+  },
+  summaryItem: {
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZES.sm,
+    marginBottom: 2,
+  },
+  summaryCard: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
   },
   summaryContent: {
     padding: SPACING.md,
@@ -2059,5 +2193,21 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     fontSize: FONT_SIZES.md,
     textAlign: 'center',
+  },
+  floatingActionButton: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    right: 20,
+    bottom: 20,
+    backgroundColor: COLORS.primary.light,
+    borderRadius: 28,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
 });
