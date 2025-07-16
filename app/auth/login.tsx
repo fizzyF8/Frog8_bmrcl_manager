@@ -50,6 +50,14 @@ export default function LoginScreen() {
       await login(email, password);
     } catch (error: any) {
       const apiMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      // Check for email not verified error
+      if (
+        apiMessage === 'Email not verified. Please verify your email before logging in.'
+      ) {
+        router.replace({ pathname: '/auth/verify-email', params: { email } });
+        setIsLoading(false);
+        return;
+      }
       setErrors([{ field: 'general', message: apiMessage }]);
       Alert.alert('Login Error', apiMessage);
     } finally {

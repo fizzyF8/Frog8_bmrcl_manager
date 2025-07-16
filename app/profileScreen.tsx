@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Switch, RefreshControl, ActivityIndicator, Alert, Modal, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Switch, RefreshControl, ActivityIndicator, Alert, Modal, Dimensions, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/theme';
-import { User, Mail, Phone, FileText, LogOut, Moon, Bell, Shield, CircleHelp as HelpCircle, ChevronRight, Calendar, MapPin, Building, ArrowLeft, Camera } from 'lucide-react-native';
+import { User, Mail, Phone, FileText, LogOut, Moon, Bell, Shield, CircleHelp as HelpCircle, ChevronRight, Calendar, MapPin, Building, ArrowLeft, Camera, Lock } from 'lucide-react-native';
 import Card from '@/components/ui/Card';
 import SyncStatus from '@/components/ui/SyncStatus';
 import StatusBadge from '@/components/ui/StatusBadge';
@@ -31,6 +31,11 @@ export default function ProfileScreen() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [imageModalVisible, setImageModalVisible] = useState(false);
   const { width, height } = Dimensions.get('window');
+  const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState<string | null>(null);
   // const { hasPermission } = usePermissions();
 
   const handleLogout = () => {
@@ -133,6 +138,38 @@ export default function ProfileScreen() {
       Alert.alert('Success', response.message || 'Profile updated successfully');
     } else {
       Alert.alert('Error', response.message || 'Failed to update profile');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setChangePasswordError(null);
+    if (!newPassword || !confirmPassword) {
+      setChangePasswordError('Please fill in all fields.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setChangePasswordError('Passwords do not match.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setChangePasswordError('Password must be at least 8 characters.');
+      return;
+    }
+    setChangePasswordLoading(true);
+    try {
+      const response = await authApi.resetPassword(user?.email || '', newPassword, confirmPassword);
+      if (response.status === 'true') {
+        Alert.alert('Success', response.message || 'Password changed successfully');
+        setChangePasswordModalVisible(false);
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setChangePasswordError(response.message || 'Failed to change password');
+      }
+    } catch (error: any) {
+      setChangePasswordError(error?.message || 'Failed to change password');
+    } finally {
+      setChangePasswordLoading(false);
     }
   };
 
@@ -337,6 +374,17 @@ export default function ProfileScreen() {
               thumbColor={theme.card}
             />
           </View>
+          {/* Change Password Option */}
+          <TouchableOpacity
+            style={[styles.settingItem, styles.changePasswordRow, { backgroundColor: COLORS.warning.light + '10' }]}
+            onPress={() => setChangePasswordModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingItemLeft}>
+              <Lock size={20} color={COLORS.warning.light} />
+              <Text style={[styles.settingName, styles.changePasswordText, { color: COLORS.warning.light }]}>Change Password</Text>
+            </View>
+          </TouchableOpacity>
         </Card>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -365,6 +413,48 @@ export default function ProfileScreen() {
             <TouchableOpacity onPress={() => setImageModalVisible(false)} style={{ padding: 12, backgroundColor: theme.card, borderRadius: 24 }}>
               <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 16 }}>Close</Text>
             </TouchableOpacity>
+          </View>
+        </Modal>
+        {/* Change Password Modal */}
+        <Modal
+          visible={changePasswordModalVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setChangePasswordModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContainer, { backgroundColor: theme.card }]}> 
+              <Text style={[styles.modalTitle, { color: COLORS.warning.light }]}>Change Password</Text>
+              <Text style={[styles.modalEmailLabel, { color: theme.secondaryText }]}>Email:</Text>
+              <Text style={[styles.modalEmailValue, { color: theme.text }]}>{user?.email}</Text>
+              <TextInput
+                style={[styles.input, styles.modalInput, { color: theme.text, borderColor: theme.border }]}
+                placeholder="New Password"
+                placeholderTextColor={theme.secondaryText}
+                secureTextEntry
+                value={newPassword}
+                onChangeText={setNewPassword}
+              />
+              <TextInput
+                style={[styles.input, styles.modalInput, { color: theme.text, borderColor: theme.border }]}
+                placeholder="Confirm New Password"
+                placeholderTextColor={theme.secondaryText}
+                secureTextEntry
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+              {changePasswordError ? (
+                <Text style={styles.modalError}>{changePasswordError}</Text>
+              ) : null}
+              <View style={styles.modalButtonRow}>
+                <TouchableOpacity onPress={() => setChangePasswordModalVisible(false)} style={styles.modalCancelButton}>
+                  <Text style={[styles.modalCancelText, { color: theme.secondaryText }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleChangePassword} disabled={changePasswordLoading} style={[styles.modalSaveButton, { backgroundColor: COLORS.warning.light }]}>
+                  <Text style={styles.modalSaveText}>{changePasswordLoading ? 'Saving...' : 'Save'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </Modal>
       </ScrollView>
@@ -560,5 +650,90 @@ const styles = StyleSheet.create({
   quickNotesDescription: {
     fontSize: FONT_SIZES.md,
     fontFamily: FONTS.regular,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.neutral[300],
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    fontSize: FONT_SIZES.md,
+    marginBottom: SPACING.md,
+  },
+  changePasswordRow: {
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: 2,
+    marginBottom: 2,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  changePasswordText: {
+    fontWeight: 'bold',
+    marginLeft: SPACING.sm,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '92%',
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    shadowColor: COLORS.neutral[900],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontFamily: FONTS.bold,
+    marginBottom: SPACING.md,
+    textAlign: 'center',
+  },
+  modalEmailLabel: {
+    fontSize: FONT_SIZES.sm,
+    marginBottom: 2,
+    marginTop: 2,
+  },
+  modalEmailValue: {
+    fontSize: FONT_SIZES.md,
+    marginBottom: SPACING.sm,
+    fontWeight: 'bold',
+  },
+  modalInput: {
+    marginBottom: SPACING.sm,
+    backgroundColor: COLORS.neutral[100],
+  },
+  modalError: {
+    color: COLORS.error.light,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: SPACING.md,
+  },
+  modalCancelButton: {
+    marginRight: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    backgroundColor: COLORS.neutral[200],
+  },
+  modalCancelText: {
+    fontWeight: 'bold',
+  },
+  modalSaveButton: {
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+  },
+  modalSaveText: {
+    color: COLORS.white,
+    fontWeight: 'bold',
   },
 }); 

@@ -5,7 +5,7 @@ import { COLORS, FONTS, FONT_SIZES, SPACING, BORDER_RADIUS } from '@/constants/t
 import Card from '@/components/ui/Card';
 import StatusBadge from '@/components/ui/StatusBadge';
 import SyncStatus from '@/components/ui/SyncStatus';
-import { Bell, ChevronRight, ArrowUp, ArrowDown, User } from 'lucide-react-native';
+import { Bell, ChevronRight, ArrowUp, ArrowDown, User, ClipboardList, Clock, CheckCircle, Wrench, AlertCircle, Power } from 'lucide-react-native';
 import { useAuth } from '@/context/auth';
 import { useTaskContext, useNotificationContext } from '@/context/taskContext';
 import api, { TVMsResponse, TVM, tvmApi } from '@/utils/api';
@@ -529,27 +529,79 @@ export default function Dashboard() {
                   <ChevronRight size={16} color={COLORS.primary.light} />
                 </TouchableOpacity>
               </View>
-              <View style={styles.statsContainer}>
-                <Card variant="elevated" style={cardStyle(styles.statCard)}>
-                  <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.operational}</Text>
-                  <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
-                  <StatusBadge label="Operational" type="success" size="sm" />
-                </Card>
-                <Card variant="elevated" style={cardStyle(styles.statCard)}>
-                  <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.maintenance}</Text>
-                  <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
-                  <StatusBadge label="Maintenance" type="warning" size="sm" />
-                </Card>
-                <Card variant="elevated" style={cardStyle(styles.statCard)}>
-                  <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.error}</Text>
-                  <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
-                  <StatusBadge label="Critical" type="error" size="sm" />
-                </Card>
-                <Card variant="elevated" style={cardStyle(styles.statCard)}>
-                  <Text style={[styles.statValue, { color: theme.text }]}>{tvmStats.offline}</Text>
-                  <Text style={[styles.statLabel, { color: theme.secondaryText }]}></Text>
-                  <StatusBadge label="Offline" type="default" size="sm" />
-                </Card>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: SPACING.md }}>
+                <View style={{ width: '48%', marginBottom: SPACING.sm }}>
+                  <View style={{
+                    backgroundColor: COLORS.success.light,
+                    borderRadius: BORDER_RADIUS.lg,
+                    padding: SPACING.lg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 110,
+                    shadowColor: COLORS.success.light,
+                    shadowOpacity: 0.08,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}>
+                    <CheckCircle size={32} color={COLORS.white} style={{ marginBottom: 8 }} />
+                    <Text style={{ fontSize: 32, fontWeight: 'bold', color: COLORS.white, marginBottom: 2 }}>{tvmStats.operational}</Text>
+                    <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '600', letterSpacing: 0.2, maxWidth: 80, textAlign: 'center', flexWrap: 'wrap', minHeight: 18 }}>Operational</Text>
+                  </View>
+                </View>
+                <View style={{ width: '48%', marginBottom: SPACING.sm }}>
+                  <View style={{
+                    backgroundColor: COLORS.warning.light,
+                    borderRadius: BORDER_RADIUS.lg,
+                    padding: SPACING.lg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 110,
+                    shadowColor: COLORS.warning.light,
+                    shadowOpacity: 0.08,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}>
+                    <Wrench size={32} color={COLORS.white} style={{ marginBottom: 8 }} />
+                    <Text style={{ fontSize: 32, fontWeight: 'bold', color: COLORS.white, marginBottom: 2 }}>{tvmStats.maintenance}</Text>
+                    <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '600', letterSpacing: 0.2, maxWidth: 80, textAlign: 'center', flexWrap: 'wrap', minHeight: 18 }}>Maintenance</Text>
+                  </View>
+                </View>
+                <View style={{ width: '48%', marginBottom: 0 }}>
+                  <View style={{
+                    backgroundColor: COLORS.error.light,
+                    borderRadius: BORDER_RADIUS.lg,
+                    padding: SPACING.lg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 110,
+                    shadowColor: COLORS.error.light,
+                    shadowOpacity: 0.08,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}>
+                    <AlertCircle size={32} color={COLORS.white} style={{ marginBottom: 8 }} />
+                    <Text style={{ fontSize: 32, fontWeight: 'bold', color: COLORS.white, marginBottom: 2 }}>{tvmStats.error}</Text>
+                    <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '600', letterSpacing: 0.2, maxWidth: 80, textAlign: 'center', flexWrap: 'wrap', minHeight: 18 }}>Critical</Text>
+                  </View>
+                </View>
+                <View style={{ width: '48%', marginBottom: 0 }}>
+                  <View style={{
+                    backgroundColor: COLORS.neutral[400],
+                    borderRadius: BORDER_RADIUS.lg,
+                    padding: SPACING.lg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 110,
+                    shadowColor: COLORS.neutral[400],
+                    shadowOpacity: 0.08,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}>
+                    <Power size={32} color={COLORS.white} style={{ marginBottom: 8 }} />
+                    <Text style={{ fontSize: 32, fontWeight: 'bold', color: COLORS.white, marginBottom: 2 }}>{tvmStats.offline}</Text>
+                    <Text style={{ fontSize: 12, color: COLORS.white, fontWeight: '600', letterSpacing: 0.2, maxWidth: 80, textAlign: 'center', flexWrap: 'wrap', minHeight: 18 }}>Offline</Text>
+                  </View>
+                </View>
               </View>
             </View>
 
@@ -569,31 +621,61 @@ export default function Dashboard() {
                   </TouchableOpacity>
                 </View>
               </View>
-              <View style={styles.taskStatsContainer}>
-                <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
-                  {taskLoading ? (
-                    <ActivityIndicator size="small" color={COLORS.primary.light} />
-                  ) : (
-                    <Text style={[styles.taskStatValue, { color: theme.text }]}>{myTaskStats.total}</Text>
-                  )}
-                  <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Total</Text>
-                </Card>
-                <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
-                  {taskLoading ? (
-                    <ActivityIndicator size="small" color={COLORS.primary.light} />
-                  ) : (
-                    <Text style={[styles.taskStatValue, { color: theme.text }]}>{myTaskStats.pending}</Text>
-                  )}
-                  <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Pending</Text>
-                </Card>
-                <Card variant="elevated" style={cardStyle(styles.taskStatCard)}>
-                  {taskLoading ? (
-                    <ActivityIndicator size="small" color={COLORS.primary.light} />
-                  ) : (
-                    <Text style={[styles.taskStatValue, { color: theme.text }]}>{myTaskStats.completed}</Text>
-                  )}
-                  <Text style={[styles.taskStatLabel, { color: theme.secondaryText }]}>Completed</Text>
-                </Card>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.md }}>
+                <View style={{ flex: 1, marginRight: SPACING.sm, minWidth: 0 }}>
+                  <View style={{
+                    backgroundColor: COLORS.accent.light,
+                    borderRadius: BORDER_RADIUS.lg,
+                    padding: SPACING.lg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 110,
+                    shadowColor: COLORS.accent.light,
+                    shadowOpacity: 0.08,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}>
+                    <ClipboardList size={32} color={COLORS.white} style={{ marginBottom: 8 }} />
+                    <Text style={{ fontSize: 32, fontWeight: 'bold', color: COLORS.white, marginBottom: 2 }}>{myTaskStats.total}</Text>
+                    <Text style={{ fontSize: 13, color: COLORS.white, fontWeight: '600', letterSpacing: 0.5, maxWidth: 80, textAlign: 'center' }}>Total</Text>
+                  </View>
+                </View>
+                <View style={{ flex: 1, marginHorizontal: SPACING.sm / 2, minWidth: 0 }}>
+                  <View style={{
+                    backgroundColor: COLORS.warning.light,
+                    borderRadius: BORDER_RADIUS.lg,
+                    padding: SPACING.lg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 110,
+                    shadowColor: COLORS.warning.light,
+                    shadowOpacity: 0.08,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}>
+                    <Clock size={32} color={COLORS.white} style={{ marginBottom: 8 }} />
+                    <Text style={{ fontSize: 32, fontWeight: 'bold', color: COLORS.white, marginBottom: 2 }}>{myTaskStats.pending}</Text>
+                    <Text style={{ fontSize: 13, color: COLORS.white, fontWeight: '600', letterSpacing: 0.5, maxWidth: 80, textAlign: 'center' }}>Pending</Text>
+                  </View>
+                </View>
+                <View style={{ flex: 1, marginLeft: SPACING.sm, minWidth: 0 }}>
+                  <View style={{
+                    backgroundColor: COLORS.success.light,
+                    borderRadius: BORDER_RADIUS.lg,
+                    padding: SPACING.lg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 110,
+                    shadowColor: COLORS.success.light,
+                    shadowOpacity: 0.08,
+                    shadowRadius: 8,
+                    elevation: 2,
+                  }}>
+                    <CheckCircle size={32} color={COLORS.white} style={{ marginBottom: 8 }} />
+                    <Text style={{ fontSize: 32, fontWeight: 'bold', color: COLORS.white, marginBottom: 2 }}>{myTaskStats.completed}</Text>
+                    <Text style={{ fontSize: 13, color: COLORS.white, fontWeight: '600', letterSpacing: 0.5, maxWidth: 80, textAlign: 'center' }}>Completed</Text>
+                  </View>
+                </View>
               </View>
             </View>
 

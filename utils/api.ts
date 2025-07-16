@@ -293,11 +293,23 @@ export interface ResetPasswordResponse {
 
 export const authApi = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
-    const response = await api.post<LoginResponse>('/login', {
-      email,
-      password,
-    });
-    return response.data;
+    try {
+      const response = await api.post<LoginResponse>('/login', {
+        email,
+        password,
+      });
+      return response.data;
+    } catch (error: any) {
+      // Check for server error response
+      if (error.response && error.response.data) {
+        const data = error.response.data;
+        // Prefer 'error' field, fallback to 'message'
+        const message = data.error || data.message || 'Login failed';
+        throw new Error(message);
+      }
+      // Fallback to generic error
+      throw new Error(error.message || 'Login failed');
+    }
   },
 
   resetPassword: async (email: string, newPassword: string, newPasswordConfirmation: string): Promise<ResetPasswordResponse> => {

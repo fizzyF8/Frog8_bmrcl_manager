@@ -34,7 +34,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.status === 'true') {
         setUser(response.user);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // If unauthorized, clear token and logout user silently
+      if (error.response && error.response.status === 401) {
+        await AsyncStorage.removeItem('token');
+        setIsAuthenticated(false);
+        setUser(null);
+        // Do not log 401 errors
+        return;
+      }
+      // Log other errors
       console.error('Error fetching profile:', error);
       throw error;
     }
